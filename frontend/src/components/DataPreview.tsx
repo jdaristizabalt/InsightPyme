@@ -98,6 +98,73 @@ export default function DataPreview({
   const hasWarnings =
     data.validation.warnings > 0;
 
+  function downloadErrorReport() {
+    if (data.problematic_rows.length === 0) {
+      return;
+    }
+
+    const header = [
+      "fila",
+      "fecha",
+      "producto",
+      "categoria",
+      "cantidad",
+      "precio_unitario",
+      "problemas",
+    ];
+
+    const rows = data.problematic_rows.map((row) => {
+      const issues = getRowIssues(row);
+
+      return [
+        Number(row.row_index) + 2,
+        row.fecha,
+        row.producto,
+        row.categoria,
+        row.cantidad,
+        row.precio_unitario,
+        issues.join(" | "),
+      ];
+    });
+
+    const escapeCsvValue = (
+      value: string | number
+    ) => {
+      const text = String(value ?? "");
+
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const csvContent = [
+      header.map(escapeCsvValue).join(","),
+      ...rows.map((row) =>
+        row.map(escapeCsvValue).join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob(
+      [csvContent],
+      {
+        type: "text/csv;charset=utf-8;",
+      }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "insightpyme_errores.csv";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="mx-auto mt-8 max-w-6xl space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -261,19 +328,29 @@ export default function DataPreview({
 
       {data.problematic_rows.length > 0 && (
         <div className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
-          <div className="mb-5">
-            <p className="text-sm font-medium text-red-600">
-              Filas problemáticas
-            </p>
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600">
+                Filas problemáticas
+              </p>
 
-            <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              Registros que requieren revisión
-            </h3>
+              <h3 className="mt-1 text-xl font-semibold text-slate-900">
+                Registros que requieren revisión
+              </h3>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Mostramos hasta 10 filas con errores detectados para que puedas
-              identificar qué debes corregir en el archivo original.
-            </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Mostramos hasta 10 filas con errores detectados para que puedas
+                identificar qué debes corregir en el archivo original.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={downloadErrorReport}
+              className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+            >
+              Descargar errores CSV
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -293,27 +370,37 @@ export default function DataPreview({
 
                       <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
                         <p>
-                          <span className="font-medium">Fecha:</span>{" "}
+                          <span className="font-medium">
+                            Fecha:
+                          </span>{" "}
                           {row.fecha || "Vacío"}
                         </p>
 
                         <p>
-                          <span className="font-medium">Producto:</span>{" "}
+                          <span className="font-medium">
+                            Producto:
+                          </span>{" "}
                           {row.producto || "Vacío"}
                         </p>
 
                         <p>
-                          <span className="font-medium">Categoría:</span>{" "}
+                          <span className="font-medium">
+                            Categoría:
+                          </span>{" "}
                           {row.categoria || "Vacío"}
                         </p>
 
                         <p>
-                          <span className="font-medium">Cantidad:</span>{" "}
+                          <span className="font-medium">
+                            Cantidad:
+                          </span>{" "}
                           {row.cantidad || "Vacío"}
                         </p>
 
                         <p>
-                          <span className="font-medium">Precio:</span>{" "}
+                          <span className="font-medium">
+                            Precio:
+                          </span>{" "}
                           {row.precio_unitario || "Vacío"}
                         </p>
                       </div>
