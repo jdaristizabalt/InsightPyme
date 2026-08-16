@@ -1,0 +1,13 @@
+fecha,producto,categoria,cantidad,precio_unitario
+2026-08-01,Pizza Hawaiana,Pizza,2,35000
+2026-08-01,Coca Cola 1.5L,Bebidas,1,8000
+2026-08-01,Hamburguesa Especial,Hamburguesa,3,22000
+2026-08-02,Pizza BBQ,Pizza,1,42000
+2026-08-02,Perro Especial,Perro,2,18000
+2026-08-02,Coca Cola 1.5L,Bebidas,2,8000
+2026-08-03,Lasaña Mixta,Lasaña,2,28000
+2026-08-03,Pizza Hawaiana,Pizza,1,35000
+2026-08-03,Hamburguesa Especial,Hamburguesa,2,22000
+2026-08-04,Pizza BBQ,Pizza,3,42000
+2026-08-04,Perro Especial,Perro,1,18000
+2026-08-04,Coca Cola 1.5L,Bebidas,3,8000
