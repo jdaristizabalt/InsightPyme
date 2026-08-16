@@ -5,7 +5,6 @@ type FileUploaderProps = {
   onFileChange: (
     event: React.ChangeEvent<HTMLInputElement>
   ) => void;
-  onAnalyze: () => void;
 };
 
 export default function FileUploader({
@@ -13,7 +12,6 @@ export default function FileUploader({
   loading,
   error,
   onFileChange,
-  onAnalyze,
 }: FileUploaderProps) {
   return (
     <div className="mx-auto mt-12 max-w-2xl">
@@ -38,6 +36,7 @@ export default function FileUploader({
               type="file"
               accept=".csv,.xlsx"
               onChange={onFileChange}
+              disabled={loading}
               className="hidden"
             />
           </label>
@@ -53,20 +52,13 @@ export default function FileUploader({
               </p>
             </div>
           )}
-        </div>
 
-        {file && (
-          <button
-            type="button"
-            onClick={onAnalyze}
-            disabled={loading}
-            className="mt-6 w-full rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading
-              ? "Analizando..."
-              : "Analizar ventas"}
-          </button>
-        )}
+          {loading && (
+            <p className="mt-5 text-sm font-medium text-blue-600">
+              Inspeccionando archivo...
+            </p>
+          )}
+        </div>
 
         {error && (
           <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -77,7 +69,7 @@ export default function FileUploader({
         <div className="mt-6 flex justify-center gap-6 text-xs text-slate-400">
           <span>✓ CSV</span>
           <span>✓ Excel</span>
-          <span>✓ Análisis automático</span>
+          <span>✓ Mapeo flexible</span>
         </div>
       </div>
     </div>

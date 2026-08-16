@@ -2,19 +2,37 @@
 
 import { useState } from "react";
 
+import ColumnMapper from "@/components/ColumnMapper";
+import FileUploader from "@/components/FileUploader";
+import InsightsPanel from "@/components/InsightsPanel";
 import MetricCard from "@/components/MetricCard";
 import SalesByCategoryChart from "@/components/SalesByCategoryChart";
 import SalesByDayChart from "@/components/SalesByDayChart";
 import TopProductsTable from "@/components/TopProductsTable";
-import FileUploader from "@/components/FileUploader";
-import InsightsPanel from "@/components/InsightsPanel";
 
 import { formatCurrency } from "@/lib/formatters";
 import type { AnalyticsResponse } from "@/types/analytics";
+import type {
+  ColumnMapping,
+  FileInspection,
+} from "@/types/inspection";
 
+const EMPTY_MAPPING: ColumnMapping = {
+  fecha: "",
+  producto: "",
+  categoria: "",
+  cantidad: "",
+  precio_unitario: "",
+};
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+
+  const [inspection, setInspection] =
+    useState<FileInspection | null>(null);
+
+  const [mapping, setMapping] =
+    useState<ColumnMapping>(EMPTY_MAPPING);
 
   const [result, setResult] =
     useState<AnalyticsResponse | null>(null);
@@ -23,21 +41,88 @@ export default function Home() {
 
   const [error, setError] = useState("");
 
-
-  function handleFileChange(
+  async function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const selectedFile =
       event.target.files?.[0] ?? null;
 
     setFile(selectedFile);
+    setInspection(null);
+    setMapping(EMPTY_MAPPING);
     setResult(null);
     setError("");
+
+    if (!selectedFile) {
+      return;
+    }
+
+    await inspectFile(selectedFile);
   }
 
+  async function inspectFile(
+    selectedFile: File
+  ) {
+    setLoading(true);
+    setError("");
+
+    const formData = new FormData();
+
+    formData.append(
+      "file",
+      selectedFile
+    );
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/analytics/inspect",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "No fue posible inspeccionar el archivo."
+        );
+      }
+
+      setInspection(data);
+
+      setMapping(
+        generateInitialMapping(
+          data.columns
+        )
+      );
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(
+          "Ocurrió un error inesperado."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleMappingChange(
+    field: keyof ColumnMapping,
+    value: string
+  ) {
+    setMapping((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
 
   async function handleAnalyze() {
-    if (!file) {
+    if (!file || !inspection) {
       return;
     }
 
@@ -47,11 +132,39 @@ export default function Home() {
 
     const formData = new FormData();
 
-    formData.append("file", file);
+    formData.append(
+      "file",
+      file
+    );
+
+    formData.append(
+      "fecha",
+      mapping.fecha
+    );
+
+    formData.append(
+      "producto",
+      mapping.producto
+    );
+
+    formData.append(
+      "categoria",
+      mapping.categoria
+    );
+
+    formData.append(
+      "cantidad",
+      mapping.cantidad
+    );
+
+    formData.append(
+      "precio_unitario",
+      mapping.precio_unitario
+    );
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/analytics/upload",
+        "http://127.0.0.1:8000/analytics/upload-mapped",
         {
           method: "POST",
           body: formData,
@@ -81,7 +194,6 @@ export default function Home() {
     }
   }
 
-
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -97,7 +209,7 @@ export default function Home() {
           </div>
 
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-            v0.2
+            v0.3
           </span>
         </div>
       </header>
@@ -113,19 +225,27 @@ export default function Home() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-            Carga tu archivo de ventas y obtén
-            automáticamente indicadores,
-            tendencias y análisis de tu negocio.
+            Carga tu archivo, configura las columnas y obtén
+            indicadores, tendencias e insights de tu negocio.
           </p>
         </div>
-        
+
         <FileUploader
-            file={file}
-            loading={loading}
-            error={error}
-            onFileChange={handleFileChange}
+          file={file}
+          loading={loading}
+          error={error}
+          onFileChange={handleFileChange}
+        />
+
+        {inspection && (
+          <ColumnMapper
+            inspection={inspection}
+            mapping={mapping}
+            onMappingChange={handleMappingChange}
             onAnalyze={handleAnalyze}
+            loading={loading}
           />
+        )}
 
         {result && (
           <section className="mx-auto mt-12 max-w-6xl">
@@ -231,13 +351,106 @@ export default function Home() {
 
             <div className="mt-8">
               <InsightsPanel
-              insights={result.insights}
-            />
-          </div>
-
+                insights={result.insights}
+              />
+            </div>
           </section>
         )}
       </section>
     </main>
   );
+}
+
+function normalizeColumnName(
+  value: string
+) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
+}
+
+function findColumn(
+  columns: string[],
+  candidates: string[]
+) {
+  const normalizedCandidates =
+    candidates.map(
+      normalizeColumnName
+    );
+
+  return (
+    columns.find((column) =>
+      normalizedCandidates.includes(
+        normalizeColumnName(column)
+      )
+    ) ?? ""
+  );
+}
+
+function generateInitialMapping(
+  columns: string[]
+): ColumnMapping {
+  return {
+    fecha: findColumn(
+      columns,
+      [
+        "fecha",
+        "fecha venta",
+        "fecha de venta",
+        "date",
+      ]
+    ),
+
+    producto: findColumn(
+      columns,
+      [
+        "producto",
+        "descripcion",
+        "descripción",
+        "item",
+        "product",
+      ]
+    ),
+
+    categoria: findColumn(
+      columns,
+      [
+        "categoria",
+        "categoría",
+        "familia",
+        "category",
+      ]
+    ),
+
+    cantidad: findColumn(
+      columns,
+      [
+        "cantidad",
+        "cant",
+        "cant.",
+        "qty",
+        "quantity",
+      ]
+    ),
+
+    precio_unitario: findColumn(
+      columns,
+      [
+        "precio_unitario",
+        "precio unitario",
+        "valor unitario",
+        "precio",
+        "price",
+        "unit price",
+      ]
+    ),
+  };
 }
