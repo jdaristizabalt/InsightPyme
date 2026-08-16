@@ -203,6 +203,120 @@ async def upload_mapped_sales_file(
             detail="No fue posible procesar el archivo mapeado.",
         ) from exc
 
+@app.post("/analytics/preview-mapped")
+async def preview_mapped_sales_file(
+    file: UploadFile = File(...),
+    fecha: str = Form(...),
+    producto: str = Form(...),
+    categoria: str = Form(...),
+    cantidad: str = Form(...),
+    precio_unitario: str = Form(...),
+):
+    allowed_extensions = (
+        ".csv",
+        ".xlsx",
+    )
+
+    filename = file.filename or ""
+
+    if not filename.lower().endswith(
+        allowed_extensions
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Formato no soportado. "
+                "Utiliza CSV o XLSX."
+            ),
+        )
+
+    try:
+        contents = await file.read()
+        buffer = BytesIO(contents)
+
+        if filename.lower().endswith(".csv"):
+            df = pd.read_csv(buffer)
+        else:
+            df = pd.read_excel(buffer)
+
+        mapping = {
+            fecha: "fecha",
+            producto: "producto",
+            categoria: "categoria",
+            cantidad: "cantidad",
+            precio_unitario: "precio_unitario",
+        }
+
+        missing_source_columns = [
+            column
+            for column in mapping
+            if column not in df.columns
+        ]
+
+        if missing_source_columns:
+            raise ValueError(
+                "No se encontraron las columnas seleccionadas: "
+                + ", ".join(missing_source_columns)
+            )
+
+        df = df.rename(columns=mapping)
+
+        required_columns = [
+            "fecha",
+            "producto",
+            "categoria",
+            "cantidad",
+            "precio_unitario",
+        ]
+
+        df = df[required_columns]
+
+        preview = (
+            df.head(5)
+            .fillna("")
+            .astype(str)
+            .to_dict(orient="records")
+        )
+
+        validation = {
+            "total_rows": len(df),
+            "missing_fecha": int(
+                df["fecha"].isna().sum()
+            ),
+            "missing_producto": int(
+                df["producto"].isna().sum()
+            ),
+            "missing_categoria": int(
+                df["categoria"].isna().sum()
+            ),
+            "missing_cantidad": int(
+                df["cantidad"].isna().sum()
+            ),
+            "missing_precio_unitario": int(
+                df["precio_unitario"].isna().sum()
+            ),
+        }
+
+        return {
+            "filename": filename,
+            "preview": preview,
+            "validation": validation,
+        }
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "No fue posible generar la vista previa."
+            ),
+        ) from exc
+
 @app.post("/analytics/upload")
 async def upload_sales_file(
     file: UploadFile = File(...)

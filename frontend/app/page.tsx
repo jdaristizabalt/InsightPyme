@@ -9,12 +9,14 @@ import MetricCard from "@/components/MetricCard";
 import SalesByCategoryChart from "@/components/SalesByCategoryChart";
 import SalesByDayChart from "@/components/SalesByDayChart";
 import TopProductsTable from "@/components/TopProductsTable";
+import DataPreview from "@/components/DataPreview";
 
 import { formatCurrency } from "@/lib/formatters";
 import type { AnalyticsResponse } from "@/types/analytics";
 import type {
   ColumnMapping,
   FileInspection,
+  MappedPreview,
 } from "@/types/inspection";
 
 const EMPTY_MAPPING: ColumnMapping = {
@@ -30,6 +32,9 @@ export default function Home() {
 
   const [inspection, setInspection] =
     useState<FileInspection | null>(null);
+
+  const [preview, setPreview] =
+    useState<MappedPreview | null>(null);  
 
   const [mapping, setMapping] =
     useState<ColumnMapping>(EMPTY_MAPPING);
@@ -49,6 +54,7 @@ export default function Home() {
 
     setFile(selectedFile);
     setInspection(null);
+    setPreview(null);
     setMapping(EMPTY_MAPPING);
     setResult(null);
     setError("");
@@ -119,7 +125,73 @@ export default function Home() {
       ...current,
       [field]: value,
     }));
+
+    setPreview(null);
+    setResult(null);
   }
+
+  async function handlePreview() {
+  if (!file) {
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+  setPreview(null);
+  setResult(null);
+
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append("fecha", mapping.fecha);
+  formData.append(
+    "producto",
+    mapping.producto
+  );
+  formData.append(
+    "categoria",
+    mapping.categoria
+  );
+  formData.append(
+    "cantidad",
+    mapping.cantidad
+  );
+  formData.append(
+    "precio_unitario",
+    mapping.precio_unitario
+  );
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/analytics/preview-mapped",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail ||
+          "No fue posible generar la vista previa."
+      );
+    }
+
+    setPreview(data);
+  } catch (err) {
+    if (err instanceof Error) {
+      setError(err.message);
+    } else {
+      setError(
+        "Ocurrió un error inesperado."
+      );
+    }
+  } finally {
+    setLoading(false);
+  }
+}
 
   async function handleAnalyze() {
     if (!file || !inspection) {
@@ -242,9 +314,28 @@ export default function Home() {
             inspection={inspection}
             mapping={mapping}
             onMappingChange={handleMappingChange}
-            onAnalyze={handleAnalyze}
+            onPreview={handlePreview}
             loading={loading}
           />
+        )}
+
+        {preview && (
+          <>
+            <DataPreview data={preview} />
+
+            <div className="mx-auto mt-6 max-w-4xl">
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={loading}
+                className="w-full rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {loading
+                  ? "Analizando..."
+                  : "Confirmar y analizar ventas"}
+              </button>
+            </div>
+          </>
         )}
 
         {result && (

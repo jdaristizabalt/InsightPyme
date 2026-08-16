@@ -10,7 +10,7 @@ type Props = {
     field: keyof ColumnMapping,
     value: string
   ) => void;
-  onAnalyze: () => void;
+  onPreview: () => void;
   loading: boolean;
 };
 
@@ -44,7 +44,7 @@ export default function ColumnMapper({
   inspection,
   mapping,
   onMappingChange,
-  onAnalyze,
+  onPreview,
   loading,
 }: Props) {
   const mappingComplete = Object.values(
@@ -110,15 +110,15 @@ export default function ColumnMapper({
 
       <button
         type="button"
-        onClick={onAnalyze}
+        onClick={onPreview}
         disabled={
           loading || !mappingComplete
         }
         className="mt-8 w-full rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {loading
-          ? "Analizando..."
-          : "Analizar ventas"}
+          ? "Procesando..."
+          : "Generar vista previa"}
       </button>
     </div>
   );
