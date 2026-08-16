@@ -3,21 +3,25 @@
 import { useState } from "react";
 
 import ColumnMapper from "@/components/ColumnMapper";
+import DataPreview from "@/components/DataPreview";
 import FileUploader from "@/components/FileUploader";
 import InsightsPanel from "@/components/InsightsPanel";
 import MetricCard from "@/components/MetricCard";
+import PeriodComparison from "@/components/PeriodComparison";
 import SalesByCategoryChart from "@/components/SalesByCategoryChart";
 import SalesByDayChart from "@/components/SalesByDayChart";
 import TopProductsTable from "@/components/TopProductsTable";
-import DataPreview from "@/components/DataPreview";
 
 import { formatCurrency } from "@/lib/formatters";
+
 import type { AnalyticsResponse } from "@/types/analytics";
+
 import type {
   ColumnMapping,
   FileInspection,
   MappedPreview,
 } from "@/types/inspection";
+
 
 const EMPTY_MAPPING: ColumnMapping = {
   fecha: "",
@@ -27,24 +31,33 @@ const EMPTY_MAPPING: ColumnMapping = {
   precio_unitario: "",
 };
 
+
 export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] =
+    useState<File | null>(null);
 
   const [inspection, setInspection] =
     useState<FileInspection | null>(null);
 
   const [preview, setPreview] =
-    useState<MappedPreview | null>(null);  
+    useState<MappedPreview | null>(null);
 
   const [mapping, setMapping] =
-    useState<ColumnMapping>(EMPTY_MAPPING);
+    useState<ColumnMapping>(
+      EMPTY_MAPPING
+    );
 
   const [result, setResult] =
-    useState<AnalyticsResponse | null>(null);
+    useState<AnalyticsResponse | null>(
+      null
+    );
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
+
 
   async function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>
@@ -63,8 +76,11 @@ export default function Home() {
       return;
     }
 
-    await inspectFile(selectedFile);
+    await inspectFile(
+      selectedFile
+    );
   }
+
 
   async function inspectFile(
     selectedFile: File
@@ -72,7 +88,8 @@ export default function Home() {
     setLoading(true);
     setError("");
 
-    const formData = new FormData();
+    const formData =
+      new FormData();
 
     formData.append(
       "file",
@@ -88,7 +105,8 @@ export default function Home() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -105,8 +123,12 @@ export default function Home() {
         )
       );
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
       } else {
         setError(
           "Ocurrió un error inesperado."
@@ -117,84 +139,117 @@ export default function Home() {
     }
   }
 
+
   function handleMappingChange(
     field: keyof ColumnMapping,
     value: string
   ) {
-    setMapping((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setMapping(
+      (current) => ({
+        ...current,
+        [field]: value,
+      })
+    );
 
     setPreview(null);
     setResult(null);
   }
 
+
   async function handlePreview() {
-  if (!file) {
-    return;
-  }
+    if (!file) {
+      return;
+    }
 
-  setLoading(true);
-  setError("");
-  setPreview(null);
-  setResult(null);
+    setLoading(true);
+    setError("");
+    setPreview(null);
+    setResult(null);
 
-  const formData = new FormData();
+    const formData =
+      new FormData();
 
-  formData.append("file", file);
-  formData.append("fecha", mapping.fecha);
-  formData.append(
-    "producto",
-    mapping.producto
-  );
-  formData.append(
-    "categoria",
-    mapping.categoria
-  );
-  formData.append(
-    "cantidad",
-    mapping.cantidad
-  );
-  formData.append(
-    "precio_unitario",
-    mapping.precio_unitario
-  );
-
-  try {
-    const response = await fetch(
-      "http://127.0.0.1:8000/analytics/preview-mapped",
-      {
-        method: "POST",
-        body: formData,
-      }
+    formData.append(
+      "file",
+      file
     );
 
-    const data = await response.json();
+    formData.append(
+      "fecha",
+      mapping.fecha
+    );
 
-    if (!response.ok) {
-      throw new Error(
-        data.detail ||
-          "No fue posible generar la vista previa."
-      );
-    }
+    formData.append(
+      "producto",
+      mapping.producto
+    );
 
-    setPreview(data);
-  } catch (err) {
-    if (err instanceof Error) {
-      setError(err.message);
-    } else {
-      setError(
-        "Ocurrió un error inesperado."
+    formData.append(
+      "categoria",
+      mapping.categoria
+    );
+
+    formData.append(
+      "cantidad",
+      mapping.cantidad
+    );
+
+    formData.append(
+      "precio_unitario",
+      mapping.precio_unitario
+    );
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/analytics/preview-mapped",
+        {
+          method: "POST",
+          body: formData,
+        }
       );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "No fue posible generar la vista previa."
+        );
+      }
+
+      setPreview(data);
+    } catch (err) {
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
+      } else {
+        setError(
+          "Ocurrió un error inesperado."
+        );
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-}
+
 
   async function handleAnalyze() {
-    if (!file || !inspection) {
+    if (
+      !file ||
+      !inspection ||
+      !preview
+    ) {
+      return;
+    }
+
+    if (
+      !preview.validation
+        .can_analyze
+    ) {
       return;
     }
 
@@ -202,7 +257,8 @@ export default function Home() {
     setError("");
     setResult(null);
 
-    const formData = new FormData();
+    const formData =
+      new FormData();
 
     formData.append(
       "file",
@@ -243,7 +299,8 @@ export default function Home() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -254,8 +311,12 @@ export default function Home() {
 
       setResult(data);
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
       } else {
         setError(
           "Ocurrió un error inesperado."
@@ -265,6 +326,7 @@ export default function Home() {
       setLoading(false);
     }
   }
+
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -297,8 +359,11 @@ export default function Home() {
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-            Carga tu archivo, configura las columnas y obtén
-            indicadores, tendencias e insights de tu negocio.
+            Carga tu archivo,
+            configura las columnas
+            y obtén indicadores,
+            tendencias e insights
+            de tu negocio.
           </p>
         </div>
 
@@ -306,28 +371,44 @@ export default function Home() {
           file={file}
           loading={loading}
           error={error}
-          onFileChange={handleFileChange}
+          onFileChange={
+            handleFileChange
+          }
         />
 
         {inspection && (
           <ColumnMapper
-            inspection={inspection}
+            inspection={
+              inspection
+            }
             mapping={mapping}
-            onMappingChange={handleMappingChange}
-            onPreview={handlePreview}
+            onMappingChange={
+              handleMappingChange
+            }
+            onPreview={
+              handlePreview
+            }
             loading={loading}
           />
         )}
 
         {preview && (
           <>
-            <DataPreview data={preview} />
+            <DataPreview
+              data={preview}
+            />
 
             <div className="mx-auto mt-6 max-w-4xl">
               <button
                 type="button"
-                onClick={handleAnalyze}
-                disabled={loading}
+                onClick={
+                  handleAnalyze
+                }
+                disabled={
+                  loading ||
+                  !preview.validation
+                    .can_analyze
+                }
                 className="w-full rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {loading
@@ -346,39 +427,56 @@ export default function Home() {
               </p>
 
               <h3 className="text-xl font-semibold text-slate-900">
-                {result.filename}
+                {
+                  result.filename
+                }
               </h3>
 
               <p className="mt-1 text-sm text-slate-500">
-                {result.rows_processed} registros procesados
+                {
+                  result.rows_processed
+                }{" "}
+                registros procesados
               </p>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard
                 title="Ventas totales"
-                value={formatCurrency(
-                  result.kpis.total_revenue
-                )}
+                value={
+                  formatCurrency(
+                    result.kpis
+                      .total_revenue
+                  )
+                }
               />
 
               <MetricCard
                 title="Unidades vendidas"
-                value={String(
-                  result.kpis.units_sold
-                )}
+                value={
+                  String(
+                    result.kpis
+                      .units_sold
+                  )
+                }
               />
 
               <MetricCard
                 title="Promedio por registro"
-                value={formatCurrency(
-                  result.kpis.average_ticket
-                )}
+                value={
+                  formatCurrency(
+                    result.kpis
+                      .average_ticket
+                  )
+                }
               />
 
               <MetricCard
                 title="Producto más vendido"
-                value={result.kpis.top_product}
+                value={
+                  result.kpis
+                    .top_product
+                }
               />
             </div>
 
@@ -415,6 +513,14 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="mt-8">
+              <PeriodComparison
+                comparison={
+                  result.comparison
+                }
+              />
+            </div>
+
             <div className="mt-8 grid gap-6 xl:grid-cols-2">
               <SalesByDayChart
                 data={
@@ -442,7 +548,9 @@ export default function Home() {
 
             <div className="mt-8">
               <InsightsPanel
-                insights={result.insights}
+                insights={
+                  result.insights
+                }
               />
             </div>
           </section>
@@ -451,6 +559,7 @@ export default function Home() {
     </main>
   );
 }
+
 
 function normalizeColumnName(
   value: string
@@ -468,6 +577,7 @@ function normalizeColumnName(
     );
 }
 
+
 function findColumn(
   columns: string[],
   candidates: string[]
@@ -478,13 +588,17 @@ function findColumn(
     );
 
   return (
-    columns.find((column) =>
-      normalizedCandidates.includes(
-        normalizeColumnName(column)
-      )
+    columns.find(
+      (column) =>
+        normalizedCandidates.includes(
+          normalizeColumnName(
+            column
+          )
+        )
     ) ?? ""
   );
 }
+
 
 function generateInitialMapping(
   columns: string[]
@@ -532,16 +646,17 @@ function generateInitialMapping(
       ]
     ),
 
-    precio_unitario: findColumn(
-      columns,
-      [
-        "precio_unitario",
-        "precio unitario",
-        "valor unitario",
-        "precio",
-        "price",
-        "unit price",
-      ]
-    ),
+    precio_unitario:
+      findColumn(
+        columns,
+        [
+          "precio_unitario",
+          "precio unitario",
+          "valor unitario",
+          "precio",
+          "price",
+          "unit price",
+        ]
+      ),
   };
 }

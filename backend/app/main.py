@@ -10,6 +10,7 @@ from app.services.analytics import (
     calculate_sales_analytics,
     calculate_sales_kpis,
     generate_sales_insights,
+    calculate_period_comparison,
 )
 
 
@@ -175,6 +176,7 @@ async def upload_mapped_sales_file(
         kpis = calculate_sales_kpis(df)
         analytics = calculate_sales_analytics(df)
         insights = generate_sales_insights(df)
+        comparison = calculate_period_comparison(df)
 
         return {
             "filename": filename,
@@ -189,6 +191,7 @@ async def upload_mapped_sales_file(
             "kpis": kpis,
             "analytics": analytics,
             "insights": insights,
+            "comparison": comparison,
         }
 
     except ValueError as exc:

@@ -36,4 +36,37 @@ export type AnalyticsResponse = {
     value: number;
   }[];
 
+  comparison: {
+  available: boolean;
+  message?: string;
+
+  previous_period?: {
+    start: string;
+    end: string;
+    revenue: number;
+    units: number;
+  };
+
+  current_period?: {
+    start: string;
+    end: string;
+    revenue: number;
+    units: number;
+  };
+
+  revenue_change_pct?: number | null;
+  units_change_pct?: number | null;
+
+  top_growth_product?: {
+    product: string;
+    difference: number;
+  } | null;
+
+  top_decline_product?: {
+    product: string;
+    difference: number;
+  } | null;
+
+  };
+
 };

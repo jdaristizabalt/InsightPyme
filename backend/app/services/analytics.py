@@ -10,16 +10,23 @@ REQUIRED_COLUMNS = {
 }
 
 
-def validate_sales_dataframe(df: pd.DataFrame) -> None:
+def validate_sales_dataframe(
+    df: pd.DataFrame,
+) -> None:
     """
     Valida que el DataFrame tenga la estructura mínima
     necesaria para ser procesado por InsightPyme.
     """
 
-    missing_columns = REQUIRED_COLUMNS - set(df.columns)
+    missing_columns = (
+        REQUIRED_COLUMNS
+        - set(df.columns)
+    )
 
     if missing_columns:
-        missing = ", ".join(sorted(missing_columns))
+        missing = ", ".join(
+            sorted(missing_columns)
+        )
 
         raise ValueError(
             f"Faltan columnas obligatorias: {missing}"
@@ -42,7 +49,10 @@ def prepare_sales_dataframe(
 
     df = df.copy()
 
-    # Convertir fecha
+    # -------------------------
+    # Fecha
+    # -------------------------
+
     df["fecha"] = pd.to_datetime(
         df["fecha"],
         errors="coerce",
@@ -53,7 +63,10 @@ def prepare_sales_dataframe(
             "La columna 'fecha' contiene valores inválidos."
         )
 
-    # Convertir cantidad
+    # -------------------------
+    # Cantidad
+    # -------------------------
+
     df["cantidad"] = pd.to_numeric(
         df["cantidad"],
         errors="coerce",
@@ -64,7 +77,10 @@ def prepare_sales_dataframe(
             "La columna 'cantidad' contiene valores inválidos."
         )
 
-    # Convertir precio
+    # -------------------------
+    # Precio unitario
+    # -------------------------
+
     df["precio_unitario"] = pd.to_numeric(
         df["precio_unitario"],
         errors="coerce",
@@ -75,18 +91,26 @@ def prepare_sales_dataframe(
             "La columna 'precio_unitario' contiene valores inválidos."
         )
 
+    # -------------------------
     # Validaciones de negocio
+    # -------------------------
+
     if (df["cantidad"] <= 0).any():
         raise ValueError(
             "La columna 'cantidad' debe contener valores mayores a 0."
         )
 
-    if (df["precio_unitario"] < 0).any():
+    if (
+        df["precio_unitario"] < 0
+    ).any():
         raise ValueError(
             "La columna 'precio_unitario' no puede tener valores negativos."
         )
 
+    # -------------------------
     # Total por registro
+    # -------------------------
+
     df["total_venta"] = (
         df["cantidad"]
         * df["precio_unitario"]
@@ -125,7 +149,9 @@ def calculate_sales_kpis(
     product_units = (
         df.groupby("producto")["cantidad"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     top_product = (
@@ -171,7 +197,9 @@ def calculate_sales_analytics(
 
     sales_by_day_result = [
         {
-            "date": date.strftime("%Y-%m-%d"),
+            "date": date.strftime(
+                "%Y-%m-%d"
+            ),
             "revenue": round(
                 float(revenue),
                 2,
@@ -186,9 +214,13 @@ def calculate_sales_analytics(
     # -------------------------
 
     sales_by_category = (
-        df.groupby("categoria")["total_venta"]
+        df.groupby(
+            "categoria"
+        )["total_venta"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     sales_by_category_result = [
@@ -210,8 +242,14 @@ def calculate_sales_analytics(
     products = (
         df.groupby("producto")
         .agg(
-            units=("cantidad", "sum"),
-            revenue=("total_venta", "sum"),
+            units=(
+                "cantidad",
+                "sum",
+            ),
+            revenue=(
+                "total_venta",
+                "sum",
+            ),
         )
         .sort_values(
             "revenue",
@@ -222,9 +260,13 @@ def calculate_sales_analytics(
     top_products = [
         {
             "product": product,
-            "units": int(row["units"]),
+            "units": int(
+                row["units"]
+            ),
             "revenue": round(
-                float(row["revenue"]),
+                float(
+                    row["revenue"]
+                ),
                 2,
             ),
         }
@@ -272,6 +314,7 @@ def calculate_sales_analytics(
         ),
     }
 
+
 def generate_sales_insights(
     df: pd.DataFrame,
 ) -> list[dict]:
@@ -293,13 +336,20 @@ def generate_sales_insights(
     # -------------------------
 
     daily_sales = (
-        df.groupby("fecha")["total_venta"]
+        df.groupby(
+            "fecha"
+        )["total_venta"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     if not daily_sales.empty:
-        best_day = daily_sales.index[0]
+        best_day = (
+            daily_sales.index[0]
+        )
+
         best_day_revenue = float(
             daily_sales.iloc[0]
         )
@@ -307,11 +357,15 @@ def generate_sales_insights(
         insights.append(
             {
                 "type": "best_day",
-                "title": "Mejor día de ventas",
+                "title": (
+                    "Mejor día de ventas"
+                ),
                 "message": (
-                    f"El {best_day.strftime('%Y-%m-%d')} "
-                    f"fue el día con mayor facturación, "
-                    f"con ventas por {best_day_revenue:,.0f} COP."
+                    f"El "
+                    f"{best_day.strftime('%Y-%m-%d')} "
+                    f"fue el día con mayor "
+                    f"facturación, con ventas por "
+                    f"{best_day_revenue:,.0f} COP."
                 ),
                 "value": round(
                     best_day_revenue,
@@ -325,13 +379,20 @@ def generate_sales_insights(
     # -------------------------
 
     category_sales = (
-        df.groupby("categoria")["total_venta"]
+        df.groupby(
+            "categoria"
+        )["total_venta"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     if not category_sales.empty:
-        top_category = category_sales.index[0]
+        top_category = (
+            category_sales.index[0]
+        )
+
         top_category_revenue = float(
             category_sales.iloc[0]
         )
@@ -347,10 +408,12 @@ def generate_sales_insights(
         insights.append(
             {
                 "type": "top_category",
-                "title": "Categoría principal",
+                "title": (
+                    "Categoría principal"
+                ),
                 "message": (
-                    f"{top_category} genera el "
-                    f"{category_share:.1f}% "
+                    f"{top_category} genera "
+                    f"el {category_share:.1f}% "
                     f"de la facturación total."
                 ),
                 "value": round(
@@ -365,9 +428,13 @@ def generate_sales_insights(
     # -------------------------
 
     product_revenue = (
-        df.groupby("producto")["total_venta"]
+        df.groupby(
+            "producto"
+        )["total_venta"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     if not product_revenue.empty:
@@ -381,14 +448,17 @@ def generate_sales_insights(
 
         insights.append(
             {
-                "type": "top_revenue_product",
+                "type": (
+                    "top_revenue_product"
+                ),
                 "title": (
                     "Producto con mayor facturación"
                 ),
                 "message": (
-                    f"{top_revenue_product} es el "
-                    f"producto que más factura, "
-                    f"con {top_revenue_value:,.0f} COP."
+                    f"{top_revenue_product} "
+                    f"es el producto que más "
+                    f"factura, con "
+                    f"{top_revenue_value:,.0f} COP."
                 ),
                 "value": round(
                     top_revenue_value,
@@ -402,9 +472,13 @@ def generate_sales_insights(
     # -------------------------
 
     product_units = (
-        df.groupby("producto")["cantidad"]
+        df.groupby(
+            "producto"
+        )["cantidad"]
         .sum()
-        .sort_values(ascending=False)
+        .sort_values(
+            ascending=False
+        )
     )
 
     if not product_units.empty:
@@ -418,11 +492,16 @@ def generate_sales_insights(
 
         insights.append(
             {
-                "type": "top_units_product",
-                "title": "Producto más vendido",
+                "type": (
+                    "top_units_product"
+                ),
+                "title": (
+                    "Producto más vendido"
+                ),
                 "message": (
-                    f"{top_units_product} lidera "
-                    f"en unidades vendidas con "
+                    f"{top_units_product} "
+                    f"lidera en unidades "
+                    f"vendidas con "
                     f"{top_units} unidades."
                 ),
                 "value": top_units,
@@ -430,3 +509,298 @@ def generate_sales_insights(
         )
 
     return insights
+
+
+def calculate_period_comparison(
+    df: pd.DataFrame,
+) -> dict:
+    """
+    Compara la primera mitad del periodo
+    contra la segunda mitad.
+    """
+
+    df = prepare_sales_dataframe(df)
+
+    start_date = df["fecha"].min()
+    end_date = df["fecha"].max()
+
+    total_days = (
+        end_date - start_date
+    ).days + 1
+
+    if total_days < 2:
+        return {
+            "available": False,
+            "message": (
+                "No hay suficientes días "
+                "para comparar periodos."
+            ),
+        }
+
+    midpoint = (
+        start_date
+        + pd.Timedelta(
+            days=(
+                total_days // 2
+            ) - 1
+        )
+    )
+
+    previous_start = start_date
+    previous_end = midpoint
+
+    current_start = (
+        midpoint
+        + pd.Timedelta(
+            days=1
+        )
+    )
+
+    current_end = end_date
+
+    # -------------------------
+    # DataFrames por periodo
+    # -------------------------
+
+    previous_df = df[
+        (
+            df["fecha"]
+            >= previous_start
+        )
+        & (
+            df["fecha"]
+            <= previous_end
+        )
+    ]
+
+    current_df = df[
+        (
+            df["fecha"]
+            >= current_start
+        )
+        & (
+            df["fecha"]
+            <= current_end
+        )
+    ]
+
+    # -------------------------
+    # Revenue
+    # -------------------------
+
+    previous_revenue = float(
+        previous_df[
+            "total_venta"
+        ].sum()
+    )
+
+    current_revenue = float(
+        current_df[
+            "total_venta"
+        ].sum()
+    )
+
+    # -------------------------
+    # Unidades
+    # -------------------------
+
+    previous_units = int(
+        previous_df[
+            "cantidad"
+        ].sum()
+    )
+
+    current_units = int(
+        current_df[
+            "cantidad"
+        ].sum()
+    )
+
+    # -------------------------
+    # Variación revenue
+    # -------------------------
+
+    if previous_revenue > 0:
+        revenue_change_pct = (
+            (
+                current_revenue
+                - previous_revenue
+            )
+            / previous_revenue
+            * 100
+        )
+    else:
+        revenue_change_pct = None
+
+    # -------------------------
+    # Variación unidades
+    # -------------------------
+
+    if previous_units > 0:
+        units_change_pct = (
+            (
+                current_units
+                - previous_units
+            )
+            / previous_units
+            * 100
+        )
+    else:
+        units_change_pct = None
+
+    # -------------------------
+    # Productos por periodo
+    # -------------------------
+
+    previous_products = (
+        previous_df
+        .groupby(
+            "producto"
+        )["total_venta"]
+        .sum()
+    )
+
+    current_products = (
+        current_df
+        .groupby(
+            "producto"
+        )["total_venta"]
+        .sum()
+    )
+
+    product_comparison = pd.concat(
+        [
+            previous_products.rename(
+                "previous"
+            ),
+            current_products.rename(
+                "current"
+            ),
+        ],
+        axis=1,
+    ).fillna(0)
+
+    product_comparison[
+        "difference"
+    ] = (
+        product_comparison[
+            "current"
+        ]
+        - product_comparison[
+            "previous"
+        ]
+    )
+
+    top_growth_product = None
+    top_decline_product = None
+
+    if not product_comparison.empty:
+        growth_row = (
+            product_comparison[
+                "difference"
+            ].idxmax()
+        )
+
+        decline_row = (
+            product_comparison[
+                "difference"
+            ].idxmin()
+        )
+
+        top_growth_product = {
+            "product": growth_row,
+            "difference": round(
+                float(
+                    product_comparison.loc[
+                        growth_row,
+                        "difference",
+                    ]
+                ),
+                2,
+            ),
+        }
+
+        top_decline_product = {
+            "product": decline_row,
+            "difference": round(
+                float(
+                    product_comparison.loc[
+                        decline_row,
+                        "difference",
+                    ]
+                ),
+                2,
+            ),
+        }
+
+    return {
+        "available": True,
+
+        "previous_period": {
+            "start": (
+                previous_start.strftime(
+                    "%Y-%m-%d"
+                )
+            ),
+            "end": (
+                previous_end.strftime(
+                    "%Y-%m-%d"
+                )
+            ),
+            "revenue": round(
+                previous_revenue,
+                2,
+            ),
+            "units": (
+                previous_units
+            ),
+        },
+
+        "current_period": {
+            "start": (
+                current_start.strftime(
+                    "%Y-%m-%d"
+                )
+            ),
+            "end": (
+                current_end.strftime(
+                    "%Y-%m-%d"
+                )
+            ),
+            "revenue": round(
+                current_revenue,
+                2,
+            ),
+            "units": (
+                current_units
+            ),
+        },
+
+        "revenue_change_pct": (
+            round(
+                revenue_change_pct,
+                2,
+            )
+            if revenue_change_pct
+            is not None
+            else None
+        ),
+
+        "units_change_pct": (
+            round(
+                units_change_pct,
+                2,
+            )
+            if units_change_pct
+            is not None
+            else None
+        ),
+
+        "top_growth_product": (
+            top_growth_product
+        ),
+
+        "top_decline_product": (
+            top_decline_product
+        ),
+    }
