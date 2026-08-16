@@ -803,4 +803,248 @@ def calculate_period_comparison(
         "top_decline_product": (
             top_decline_product
         ),
+        
+    }
+
+def calculate_custom_period_comparison(
+    df: pd.DataFrame,
+    current_start: str,
+    current_end: str,
+) -> dict:
+    """
+    Compara un periodo seleccionado contra
+    el periodo inmediatamente anterior
+    de la misma duración.
+    """
+
+    df = prepare_sales_dataframe(df)
+
+    start = pd.to_datetime(
+        current_start,
+        errors="coerce",
+    )
+
+    end = pd.to_datetime(
+        current_end,
+        errors="coerce",
+    )
+
+    if pd.isna(start) or pd.isna(end):
+        raise ValueError(
+            "Las fechas seleccionadas no son válidas."
+        )
+
+    if start > end:
+        raise ValueError(
+            "La fecha inicial no puede ser posterior a la fecha final."
+        )
+
+    dataset_start = df["fecha"].min()
+    dataset_end = df["fecha"].max()
+
+    if start < dataset_start or end > dataset_end:
+        raise ValueError(
+            "El periodo seleccionado está fuera del rango disponible."
+        )
+
+    period_days = (
+        end - start
+    ).days + 1
+
+    previous_end = (
+        start
+        - pd.Timedelta(days=1)
+    )
+
+    previous_start = (
+        previous_end
+        - pd.Timedelta(
+            days=period_days - 1
+        )
+    )
+
+    if previous_start < dataset_start:
+        return {
+            "available": False,
+            "message": (
+                "No existen suficientes datos anteriores "
+                "para comparar este periodo."
+            ),
+        }
+
+    current_df = df[
+        (df["fecha"] >= start)
+        & (df["fecha"] <= end)
+    ]
+
+    previous_df = df[
+        (df["fecha"] >= previous_start)
+        & (df["fecha"] <= previous_end)
+    ]
+
+    current_revenue = float(
+        current_df["total_venta"].sum()
+    )
+
+    previous_revenue = float(
+        previous_df["total_venta"].sum()
+    )
+
+    current_units = int(
+        current_df["cantidad"].sum()
+    )
+
+    previous_units = int(
+        previous_df["cantidad"].sum()
+    )
+
+    revenue_change_pct = (
+        (
+            current_revenue
+            - previous_revenue
+        )
+        / previous_revenue
+        * 100
+        if previous_revenue > 0
+        else None
+    )
+
+    units_change_pct = (
+        (
+            current_units
+            - previous_units
+        )
+        / previous_units
+        * 100
+        if previous_units > 0
+        else None
+    )
+
+    previous_products = (
+        previous_df
+        .groupby("producto")["total_venta"]
+        .sum()
+    )
+
+    current_products = (
+        current_df
+        .groupby("producto")["total_venta"]
+        .sum()
+    )
+
+    product_comparison = pd.concat(
+        [
+            previous_products.rename(
+                "previous"
+            ),
+            current_products.rename(
+                "current"
+            ),
+        ],
+        axis=1,
+    ).fillna(0)
+
+    product_comparison["difference"] = (
+        product_comparison["current"]
+        - product_comparison["previous"]
+    )
+
+    top_growth_product = None
+    top_decline_product = None
+
+    if not product_comparison.empty:
+        growth_product = (
+            product_comparison[
+                "difference"
+            ].idxmax()
+        )
+
+        decline_product = (
+            product_comparison[
+                "difference"
+            ].idxmin()
+        )
+
+        top_growth_product = {
+            "product": growth_product,
+            "difference": round(
+                float(
+                    product_comparison.loc[
+                        growth_product,
+                        "difference",
+                    ]
+                ),
+                2,
+            ),
+        }
+
+        top_decline_product = {
+            "product": decline_product,
+            "difference": round(
+                float(
+                    product_comparison.loc[
+                        decline_product,
+                        "difference",
+                    ]
+                ),
+                2,
+            ),
+        }
+
+    return {
+        "available": True,
+
+        "previous_period": {
+            "start": previous_start.strftime(
+                "%Y-%m-%d"
+            ),
+            "end": previous_end.strftime(
+                "%Y-%m-%d"
+            ),
+            "revenue": round(
+                previous_revenue,
+                2,
+            ),
+            "units": previous_units,
+        },
+
+        "current_period": {
+            "start": start.strftime(
+                "%Y-%m-%d"
+            ),
+            "end": end.strftime(
+                "%Y-%m-%d"
+            ),
+            "revenue": round(
+                current_revenue,
+                2,
+            ),
+            "units": current_units,
+        },
+
+        "revenue_change_pct": (
+            round(
+                revenue_change_pct,
+                2,
+            )
+            if revenue_change_pct
+            is not None
+            else None
+        ),
+
+        "units_change_pct": (
+            round(
+                units_change_pct,
+                2,
+            )
+            if units_change_pct
+            is not None
+            else None
+        ),
+
+        "top_growth_product":
+            top_growth_product,
+
+        "top_decline_product":
+            top_decline_product,
     }

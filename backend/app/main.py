@@ -7,10 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Form
 
 from app.services.analytics import (
+    calculate_custom_period_comparison,
+    calculate_period_comparison,
     calculate_sales_analytics,
     calculate_sales_kpis,
     generate_sales_insights,
-    calculate_period_comparison,
 )
 
 
@@ -123,6 +124,8 @@ async def upload_mapped_sales_file(
     categoria: str = Form(...),
     cantidad: str = Form(...),
     precio_unitario: str = Form(...),
+    fecha_inicio: str | None = Form(None),
+    fecha_fin: str | None = Form(None),
 ):
     allowed_extensions = (
         ".csv",
@@ -176,7 +179,18 @@ async def upload_mapped_sales_file(
         kpis = calculate_sales_kpis(df)
         analytics = calculate_sales_analytics(df)
         insights = generate_sales_insights(df)
-        comparison = calculate_period_comparison(df)
+        if fecha_inicio and fecha_fin:
+            comparison = (
+                calculate_custom_period_comparison(
+                    df,
+                    fecha_inicio,
+                    fecha_fin,
+                )
+            )
+        else:
+            comparison = (
+                calculate_period_comparison(df)
+            )
 
         return {
             "filename": filename,

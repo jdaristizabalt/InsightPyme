@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import ColumnMapper from "@/components/ColumnMapper";
 import DataPreview from "@/components/DataPreview";
+import DateRangeSelector from "@/components/DateRangeSelector";
 import FileUploader from "@/components/FileUploader";
 import InsightsPanel from "@/components/InsightsPanel";
 import MetricCard from "@/components/MetricCard";
@@ -33,6 +34,12 @@ const EMPTY_MAPPING: ColumnMapping = {
 
 
 export default function Home() {
+  const [startDate, setStartDate] =
+    useState("");
+
+  const [endDate, setEndDate] =
+    useState("");
+
   const [file, setFile] =
     useState<File | null>(null);
 
@@ -71,6 +78,8 @@ export default function Home() {
     setMapping(EMPTY_MAPPING);
     setResult(null);
     setError("");
+    setStartDate("");
+    setEndDate("");
 
     if (!selectedFile) {
       return;
@@ -153,6 +162,8 @@ export default function Home() {
 
     setPreview(null);
     setResult(null);
+    setStartDate("");
+    setEndDate("");
   }
 
 
@@ -255,7 +266,6 @@ export default function Home() {
 
     setLoading(true);
     setError("");
-    setResult(null);
 
     const formData =
       new FormData();
@@ -289,6 +299,20 @@ export default function Home() {
       "precio_unitario",
       mapping.precio_unitario
     );
+
+    if (startDate) {
+      formData.append(
+        "fecha_inicio",
+        startDate
+      );
+    }
+
+    if (endDate) {
+      formData.append(
+        "fecha_fin",
+        endDate
+      );
+    }
 
     try {
       const response = await fetch(
@@ -510,6 +534,54 @@ export default function Home() {
                       .date_range.end
                   }
                 </p>
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <DateRangeSelector
+                startDate={
+                  startDate ||
+                  result.analytics
+                    .date_range.start
+                }
+                endDate={
+                  endDate ||
+                  result.analytics
+                    .date_range.end
+                }
+                minDate={
+                  result.analytics
+                    .date_range.start
+                }
+                maxDate={
+                  result.analytics
+                    .date_range.end
+                }
+                onStartDateChange={
+                  setStartDate
+                }
+                onEndDateChange={
+                  setEndDate
+                }
+              />
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={
+                    handleAnalyze
+                  }
+                  disabled={
+                    loading ||
+                    !startDate ||
+                    !endDate
+                  }
+                  className="w-full rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {loading
+                    ? "Comparando..."
+                    : "Aplicar periodo"}
+                </button>
               </div>
             </div>
 
