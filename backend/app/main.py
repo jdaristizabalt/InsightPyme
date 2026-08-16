@@ -269,31 +269,210 @@ async def preview_mapped_sales_file(
             "precio_unitario",
         ]
 
-        df = df[required_columns]
+        df = df[required_columns].copy()
+
+        # -------------------------
+        # Versiones convertidas
+        # -------------------------
+
+        parsed_fecha = pd.to_datetime(
+            df["fecha"],
+            errors="coerce",
+        )
+
+        parsed_cantidad = pd.to_numeric(
+            df["cantidad"],
+            errors="coerce",
+        )
+
+        parsed_precio = pd.to_numeric(
+            df["precio_unitario"],
+            errors="coerce",
+        )
+
+        # -------------------------
+        # Validaciones
+        # -------------------------
+
+        missing_fecha = int(
+            df["fecha"].isna().sum()
+        )
+
+        invalid_fecha = int(
+            (
+                parsed_fecha.isna()
+                & df["fecha"].notna()
+            ).sum()
+        )
+
+        missing_producto = int(
+            (
+                df["producto"].isna()
+                | (
+                    df["producto"]
+                    .astype(str)
+                    .str.strip()
+                    == ""
+                )
+            ).sum()
+        )
+
+        missing_categoria = int(
+            (
+                df["categoria"].isna()
+                | (
+                    df["categoria"]
+                    .astype(str)
+                    .str.strip()
+                    == ""
+                )
+            ).sum()
+        )
+
+        missing_cantidad = int(
+            df["cantidad"].isna().sum()
+        )
+
+        invalid_cantidad = int(
+            (
+                parsed_cantidad.isna()
+                & df["cantidad"].notna()
+            ).sum()
+        )
+
+        non_positive_cantidad = int(
+            (
+                parsed_cantidad.notna()
+                & (parsed_cantidad <= 0)
+            ).sum()
+        )
+
+        missing_precio = int(
+            df["precio_unitario"].isna().sum()
+        )
+
+        invalid_precio = int(
+            (
+                parsed_precio.isna()
+                & df["precio_unitario"].notna()
+            ).sum()
+        )
+
+        negative_precio = int(
+            (
+                parsed_precio.notna()
+                & (parsed_precio < 0)
+            ).sum()
+        )
+
+        blocking_errors = (
+            missing_fecha
+            + invalid_fecha
+            + missing_producto
+            + missing_cantidad
+            + invalid_cantidad
+            + non_positive_cantidad
+            + missing_precio
+            + invalid_precio
+            + negative_precio
+        )
+
+        warnings = missing_categoria
+
+        # -------------------------
+        # Filas problemáticas
+        # -------------------------
+
+        problematic_mask = (
+            parsed_fecha.isna()
+            | df["producto"].isna()
+            | (
+                df["producto"]
+                .astype(str)
+                .str.strip()
+                == ""
+            )
+            | parsed_cantidad.isna()
+            | (
+                parsed_cantidad.notna()
+                & (parsed_cantidad <= 0)
+            )
+            | parsed_precio.isna()
+            | (
+                parsed_precio.notna()
+                & (parsed_precio < 0)
+            )
+        )
+
+        problematic_rows = (
+            df[problematic_mask]
+            .head(10)
+            .fillna("")
+            .astype(str)
+            .reset_index()
+            .rename(
+                columns={
+                    "index": "row_index"
+                }
+            )
+            .to_dict(
+                orient="records"
+            )
+        )
 
         preview = (
             df.head(5)
             .fillna("")
             .astype(str)
-            .to_dict(orient="records")
+            .to_dict(
+                orient="records"
+            )
         )
 
         validation = {
             "total_rows": len(df),
-            "missing_fecha": int(
-                df["fecha"].isna().sum()
+
+            "missing_fecha": (
+                missing_fecha
             ),
-            "missing_producto": int(
-                df["producto"].isna().sum()
+            "invalid_fecha": (
+                invalid_fecha
             ),
-            "missing_categoria": int(
-                df["categoria"].isna().sum()
+
+            "missing_producto": (
+                missing_producto
             ),
-            "missing_cantidad": int(
-                df["cantidad"].isna().sum()
+
+            "missing_categoria": (
+                missing_categoria
             ),
-            "missing_precio_unitario": int(
-                df["precio_unitario"].isna().sum()
+
+            "missing_cantidad": (
+                missing_cantidad
+            ),
+            "invalid_cantidad": (
+                invalid_cantidad
+            ),
+            "non_positive_cantidad": (
+                non_positive_cantidad
+            ),
+
+            "missing_precio_unitario": (
+                missing_precio
+            ),
+            "invalid_precio_unitario": (
+                invalid_precio
+            ),
+            "negative_precio_unitario": (
+                negative_precio
+            ),
+
+            "blocking_errors": (
+                blocking_errors
+            ),
+            "warnings": warnings,
+            "can_analyze": (
+                blocking_errors == 0
             ),
         }
 
@@ -301,6 +480,9 @@ async def preview_mapped_sales_file(
             "filename": filename,
             "preview": preview,
             "validation": validation,
+            "problematic_rows": (
+                problematic_rows
+            ),
         }
 
     except ValueError as exc:
@@ -313,7 +495,8 @@ async def preview_mapped_sales_file(
         raise HTTPException(
             status_code=500,
             detail=(
-                "No fue posible generar la vista previa."
+                "No fue posible generar "
+                "la vista previa."
             ),
         ) from exc
 

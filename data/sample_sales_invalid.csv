@@ -1,0 +1,6 @@
+Fecha Venta,Descripción,Familia,Cant.,Valor Unitario
+2026-08-01,Pizza Hawaiana,Pizzas,2,35000
+NO_ES_FECHA,Coca Cola 1.5L,Bebidas,1,8000
+2026-08-01,Hamburguesa Especial,Hamburguesas,dos,22000
+2026-08-02,Pizza BBQ,Pizzas,-1,42000
+2026-08-02,Perro Especial,,2,-18000
