@@ -2,45 +2,25 @@
 
 import { useState } from "react";
 
-type AnalyticsResponse = {
-  filename: string;
-  rows_processed: number;
-  kpis: {
-    total_revenue: number;
-    transactions: number;
-    units_sold: number;
-    average_ticket: number;
-    top_product: string;
-  };
-  analytics: {
-    date_range: {
-      start: string;
-      end: string;
-    };
-    highest_revenue_product: string;
-    sales_by_day: {
-      date: string;
-      revenue: number;
-    }[];
-    sales_by_category: {
-      category: string;
-      revenue: number;
-    }[];
-    top_products: {
-      product: string;
-      units: number;
-      revenue: number;
-    }[];
-  };
-};
+import MetricCard from "@/components/MetricCard";
+import SalesByCategoryChart from "@/components/SalesByCategoryChart";
+import SalesByDayChart from "@/components/SalesByDayChart";
+import TopProductsTable from "@/components/TopProductsTable";
+
+import { formatCurrency } from "@/lib/formatters";
+import type { AnalyticsResponse } from "@/types/analytics";
+
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
+
   const [result, setResult] =
     useState<AnalyticsResponse | null>(null);
 
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
+
 
   function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>
@@ -52,6 +32,7 @@ export default function Home() {
     setResult(null);
     setError("");
   }
+
 
   async function handleAnalyze() {
     if (!file) {
@@ -98,6 +79,7 @@ export default function Home() {
     }
   }
 
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -130,14 +112,14 @@ export default function Home() {
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
             Carga tu archivo de ventas y obtén
-            automáticamente indicadores y análisis
-            de tu negocio.
+            automáticamente indicadores,
+            tendencias y análisis de tu negocio.
           </p>
         </div>
 
         <div className="mx-auto mt-12 max-w-2xl">
           <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+            <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center transition hover:border-blue-400">
               <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-2xl">
                 📊
               </div>
@@ -192,6 +174,12 @@ export default function Home() {
                 {error}
               </div>
             )}
+
+            <div className="mt-6 flex justify-center gap-6 text-xs text-slate-400">
+              <span>✓ CSV</span>
+              <span>✓ Excel</span>
+              <span>✓ Análisis automático</span>
+            </div>
           </div>
         </div>
 
@@ -240,7 +228,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <p className="text-sm text-slate-500">
                   Producto con mayor facturación
                 </p>
@@ -253,54 +241,52 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <p className="text-sm text-slate-500">
                   Periodo analizado
                 </p>
 
                 <p className="mt-2 text-xl font-semibold text-slate-900">
-                  {result.analytics.date_range.start}
+                  {
+                    result.analytics
+                      .date_range.start
+                  }
                   {" → "}
-                  {result.analytics.date_range.end}
+                  {
+                    result.analytics
+                      .date_range.end
+                  }
                 </p>
               </div>
+            </div>
+
+            <div className="mt-8 grid gap-6 xl:grid-cols-2">
+              <SalesByDayChart
+                data={
+                  result.analytics
+                    .sales_by_day
+                }
+              />
+
+              <SalesByCategoryChart
+                data={
+                  result.analytics
+                    .sales_by_category
+                }
+              />
+            </div>
+
+            <div className="mt-8">
+              <TopProductsTable
+                products={
+                  result.analytics
+                    .top_products
+                }
+              />
             </div>
           </section>
         )}
       </section>
     </main>
   );
-}
-
-
-function MetricCard({
-  title,
-  value,
-}: {
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">
-        {title}
-      </p>
-
-      <p className="mt-3 text-2xl font-bold text-slate-900">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat(
-    "es-CO",
-    {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
 }
