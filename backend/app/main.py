@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.analytics import (
     calculate_sales_analytics,
     calculate_sales_kpis,
+    generate_sales_insights,
 )
 
 
@@ -84,12 +85,14 @@ async def upload_sales_file(
 
         kpis = calculate_sales_kpis(df)
         analytics = calculate_sales_analytics(df)
+        insights = generate_sales_insights(df)
 
         return {
             "filename": filename,
             "rows_processed": len(df),
             "kpis": kpis,
             "analytics": analytics,
+            "insights": insights,
         }
 
     except ValueError as exc:

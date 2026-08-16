@@ -271,3 +271,162 @@ def calculate_sales_analytics(
             top_products
         ),
     }
+
+def generate_sales_insights(
+    df: pd.DataFrame,
+) -> list[dict]:
+    """
+    Genera conclusiones automáticas a partir
+    de los datos de ventas.
+    """
+
+    df = prepare_sales_dataframe(df)
+
+    insights = []
+
+    total_revenue = float(
+        df["total_venta"].sum()
+    )
+
+    # -------------------------
+    # Mejor día de ventas
+    # -------------------------
+
+    daily_sales = (
+        df.groupby("fecha")["total_venta"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if not daily_sales.empty:
+        best_day = daily_sales.index[0]
+        best_day_revenue = float(
+            daily_sales.iloc[0]
+        )
+
+        insights.append(
+            {
+                "type": "best_day",
+                "title": "Mejor día de ventas",
+                "message": (
+                    f"El {best_day.strftime('%Y-%m-%d')} "
+                    f"fue el día con mayor facturación, "
+                    f"con ventas por {best_day_revenue:,.0f} COP."
+                ),
+                "value": round(
+                    best_day_revenue,
+                    2,
+                ),
+            }
+        )
+
+    # -------------------------
+    # Categoría líder
+    # -------------------------
+
+    category_sales = (
+        df.groupby("categoria")["total_venta"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if not category_sales.empty:
+        top_category = category_sales.index[0]
+        top_category_revenue = float(
+            category_sales.iloc[0]
+        )
+
+        category_share = (
+            top_category_revenue
+            / total_revenue
+            * 100
+            if total_revenue > 0
+            else 0
+        )
+
+        insights.append(
+            {
+                "type": "top_category",
+                "title": "Categoría principal",
+                "message": (
+                    f"{top_category} genera el "
+                    f"{category_share:.1f}% "
+                    f"de la facturación total."
+                ),
+                "value": round(
+                    category_share,
+                    2,
+                ),
+            }
+        )
+
+    # -------------------------
+    # Producto por facturación
+    # -------------------------
+
+    product_revenue = (
+        df.groupby("producto")["total_venta"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if not product_revenue.empty:
+        top_revenue_product = (
+            product_revenue.index[0]
+        )
+
+        top_revenue_value = float(
+            product_revenue.iloc[0]
+        )
+
+        insights.append(
+            {
+                "type": "top_revenue_product",
+                "title": (
+                    "Producto con mayor facturación"
+                ),
+                "message": (
+                    f"{top_revenue_product} es el "
+                    f"producto que más factura, "
+                    f"con {top_revenue_value:,.0f} COP."
+                ),
+                "value": round(
+                    top_revenue_value,
+                    2,
+                ),
+            }
+        )
+
+    # -------------------------
+    # Producto por unidades
+    # -------------------------
+
+    product_units = (
+        df.groupby("producto")["cantidad"]
+        .sum()
+        .sort_values(ascending=False)
+    )
+
+    if not product_units.empty:
+        top_units_product = (
+            product_units.index[0]
+        )
+
+        top_units = int(
+            product_units.iloc[0]
+        )
+
+        insights.append(
+            {
+                "type": "top_units_product",
+                "title": "Producto más vendido",
+                "message": (
+                    f"{top_units_product} lidera "
+                    f"en unidades vendidas con "
+                    f"{top_units} unidades."
+                ),
+                "value": top_units,
+            }
+        )
+
+    return insights

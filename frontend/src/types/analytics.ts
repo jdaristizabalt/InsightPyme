@@ -28,4 +28,12 @@ export type AnalyticsResponse = {
       revenue: number;
     }[];
   };
+
+  insights: {
+    type: string;
+    title: string;
+    message: string;
+    value: number;
+  }[];
+
 };
