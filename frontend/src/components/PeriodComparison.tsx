@@ -45,15 +45,32 @@ export default function PeriodComparison({
     !comparison.current_period
   ) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-slate-900">
-          Comparación de periodos
-        </h3>
+      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl">
+            ℹ️
+          </div>
 
-        <p className="mt-2 text-sm text-slate-500">
-          {comparison.message ??
-            "No hay suficiente información para realizar la comparación."}
-        </p>
+          <div>
+            <p className="text-sm font-medium text-blue-700">
+              Comparación no disponible
+            </p>
+
+            <h3 className="mt-1 text-xl font-semibold text-slate-900">
+              El periodo puede analizarse normalmente
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {comparison.message ??
+                "No hay suficiente información histórica para comparar este periodo contra otro de la misma duración."}
+            </p>
+
+            <p className="mt-3 text-sm text-slate-500">
+              Los KPIs, gráficos, productos e insights del periodo seleccionado
+              siguen siendo válidos.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -76,7 +93,8 @@ export default function PeriodComparison({
         </h3>
 
         <p className="mt-2 text-sm text-slate-500">
-          Comparamos la primera mitad del periodo con la segunda.
+          Comparamos el periodo seleccionado contra el periodo inmediatamente
+          anterior de la misma duración.
         </p>
       </div>
 
@@ -105,7 +123,7 @@ export default function PeriodComparison({
 
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
           <p className="text-sm font-medium text-blue-700">
-            Periodo reciente
+            Periodo seleccionado
           </p>
 
           <p className="mt-1 text-xs text-blue-500">
@@ -152,8 +170,7 @@ export default function PeriodComparison({
             <p className="mt-2 text-sm font-semibold text-emerald-700">
               +
               {formatCurrency(
-                comparison.top_growth_product
-                  .difference
+                comparison.top_growth_product.difference
               )}
             </p>
           </div>
@@ -171,8 +188,7 @@ export default function PeriodComparison({
 
             <p className="mt-2 text-sm font-semibold text-red-700">
               {formatCurrency(
-                comparison.top_decline_product
-                  .difference
+                comparison.top_decline_product.difference
               )}
             </p>
           </div>
@@ -181,6 +197,7 @@ export default function PeriodComparison({
     </div>
   );
 }
+
 
 function ChangeCard({
   title,

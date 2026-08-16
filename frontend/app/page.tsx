@@ -40,6 +40,14 @@ export default function Home() {
   const [endDate, setEndDate] =
     useState("");
 
+  // Rango completo original del archivo.
+  // No cambia aunque filtremos el dashboard.
+  const [fullStartDate, setFullStartDate] =
+    useState("");
+
+  const [fullEndDate, setFullEndDate] =
+    useState("");
+
   const [file, setFile] =
     useState<File | null>(null);
 
@@ -73,13 +81,19 @@ export default function Home() {
       event.target.files?.[0] ?? null;
 
     setFile(selectedFile);
+
     setInspection(null);
     setPreview(null);
     setMapping(EMPTY_MAPPING);
     setResult(null);
+
     setError("");
+
     setStartDate("");
     setEndDate("");
+
+    setFullStartDate("");
+    setFullEndDate("");
 
     if (!selectedFile) {
       return;
@@ -162,8 +176,12 @@ export default function Home() {
 
     setPreview(null);
     setResult(null);
+
     setStartDate("");
     setEndDate("");
+
+    setFullStartDate("");
+    setFullEndDate("");
   }
 
 
@@ -174,6 +192,7 @@ export default function Home() {
 
     setLoading(true);
     setError("");
+
     setPreview(null);
     setResult(null);
 
@@ -248,7 +267,10 @@ export default function Home() {
   }
 
 
-  async function handleAnalyze() {
+  async function analyzeWithDates(
+    customStartDate?: string,
+    customEndDate?: string
+  ) {
     if (
       !file ||
       !inspection ||
@@ -300,17 +322,17 @@ export default function Home() {
       mapping.precio_unitario
     );
 
-    if (startDate) {
+    if (customStartDate) {
       formData.append(
         "fecha_inicio",
-        startDate
+        customStartDate
       );
     }
 
-    if (endDate) {
+    if (customEndDate) {
       formData.append(
         "fecha_fin",
-        endDate
+        customEndDate
       );
     }
 
@@ -334,6 +356,23 @@ export default function Home() {
       }
 
       setResult(data);
+
+      // Cuando analizamos SIN filtro,
+      // guardamos el rango completo original.
+      if (
+        !customStartDate &&
+        !customEndDate
+      ) {
+        setFullStartDate(
+          data.analytics
+            .date_range.start
+        );
+
+        setFullEndDate(
+          data.analytics
+            .date_range.end
+        );
+      }
     } catch (err) {
       if (
         err instanceof Error
@@ -349,6 +388,22 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+
+  async function handleAnalyze() {
+    await analyzeWithDates(
+      startDate || undefined,
+      endDate || undefined
+    );
+  }
+
+
+  async function handleResetPeriod() {
+    setStartDate("");
+    setEndDate("");
+
+    await analyzeWithDates();
   }
 
 
@@ -537,53 +592,40 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8">
-              <DateRangeSelector
-                startDate={
-                  startDate ||
-                  result.analytics
-                    .date_range.start
-                }
-                endDate={
-                  endDate ||
-                  result.analytics
-                    .date_range.end
-                }
-                minDate={
-                  result.analytics
-                    .date_range.start
-                }
-                maxDate={
-                  result.analytics
-                    .date_range.end
-                }
-                onStartDateChange={
-                  setStartDate
-                }
-                onEndDateChange={
-                  setEndDate
-                }
-              />
-
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={
-                    handleAnalyze
-                  }
-                  disabled={
-                    loading ||
-                    !startDate ||
-                    !endDate
-                  }
-                  className="w-full rounded-lg bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {loading
-                    ? "Comparando..."
-                    : "Aplicar periodo"}
-                </button>
-              </div>
-            </div>
+            {fullStartDate &&
+              fullEndDate && (
+                <div className="mt-8">
+                  <DateRangeSelector
+                    startDate={
+                      startDate
+                    }
+                    endDate={
+                      endDate
+                    }
+                    minDate={
+                      fullStartDate
+                    }
+                    maxDate={
+                      fullEndDate
+                    }
+                    onStartDateChange={
+                      setStartDate
+                    }
+                    onEndDateChange={
+                      setEndDate
+                    }
+                    onApply={
+                      handleAnalyze
+                    }
+                    onReset={
+                      handleResetPeriod
+                    }
+                    loading={
+                      loading
+                    }
+                  />
+                </div>
+              )}
 
             <div className="mt-8">
               <PeriodComparison
