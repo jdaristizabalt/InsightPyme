@@ -7,6 +7,7 @@ from sqlalchemy import (
     Integer,
     String,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -68,6 +69,21 @@ class AnalysisHistory(Base):
 
     top_product: Mapped[str | None] = mapped_column(
         String(255),
+        nullable=True,
+    )
+
+    analytics_json: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    insights_json: Mapped[list | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    comparison_json: Mapped[dict | None] = mapped_column(
+        JSONB,
         nullable=True,
     )
 

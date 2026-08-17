@@ -17,6 +17,9 @@ def save_analysis_history(
     units_sold: int,
     average_ticket: float,
     top_product: str | None,
+    analytics_json: dict,
+    insights_json: list,
+    comparison_json: dict,
 ) -> AnalysisHistory:
     record = AnalysisHistory(
         filename=filename,
@@ -28,6 +31,9 @@ def save_analysis_history(
         units_sold=units_sold,
         average_ticket=average_ticket,
         top_product=top_product,
+        analytics_json=analytics_json,
+        insights_json=insights_json,
+        comparison_json=comparison_json,
     )
 
     db.add(record)
@@ -35,6 +41,7 @@ def save_analysis_history(
     db.refresh(record)
 
     return record
+
 
 def get_analysis_history(
     db: Session,
@@ -47,4 +54,18 @@ def get_analysis_history(
         )
         .limit(limit)
         .all()
+    )
+
+
+def get_analysis_history_by_id(
+    db: Session,
+    analysis_id: int,
+) -> AnalysisHistory | None:
+    return (
+        db.query(AnalysisHistory)
+        .filter(
+            AnalysisHistory.id
+            == analysis_id
+        )
+        .first()
     )

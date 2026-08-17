@@ -4,11 +4,13 @@ import type { AnalysisHistoryItem } from "@/types/history";
 type Props = {
   history: AnalysisHistoryItem[];
   loading: boolean;
+  onViewDetail: (id: number) => void;
 };
 
 export default function AnalysisHistory({
   history,
   loading,
+  onViewDetail,
 }: Props) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -38,7 +40,7 @@ export default function AnalysisHistory({
         </div>
       ) : (
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left">
+          <table className="w-full min-w-[1050px] text-left">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-4 py-3 text-xs font-semibold uppercase text-slate-500">
@@ -67,6 +69,10 @@ export default function AnalysisHistory({
 
                 <th className="px-4 py-3 text-xs font-semibold uppercase text-slate-500">
                   Fecha análisis
+                </th>
+
+                <th className="px-4 py-3 text-xs font-semibold uppercase text-slate-500">
+                  Acción
                 </th>
               </tr>
             </thead>
@@ -110,6 +116,20 @@ export default function AnalysisHistory({
                       item.created_at
                     )}
                   </td>
+
+                  <td className="px-4 py-4">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onViewDetail(
+                          item.id
+                        )
+                      }
+                      className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                    >
+                      Ver detalle
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -120,10 +140,13 @@ export default function AnalysisHistory({
   );
 }
 
+
 function formatCreatedAt(
   value: string
 ) {
-  const date = new Date(value);
+  const date = new Date(
+    value
+  );
 
   return new Intl.DateTimeFormat(
     "es-CO",

@@ -24,6 +24,7 @@ from app.database import (
 
 from app.repositories import (
     get_analysis_history,
+    get_analysis_history_by_id,
     save_analysis_history,
 )
 
@@ -46,7 +47,7 @@ app = FastAPI(
         "API para procesamiento y análisis "
         "de datos de ventas."
     ),
-    version="0.4.0",
+    version="0.5.0",
 )
 
 
@@ -85,7 +86,7 @@ def root():
     return {
         "app": "InsightPyme",
         "status": "running",
-        "version": "0.4.0",
+        "version": "0.5.0",
     }
 
 
@@ -129,6 +130,11 @@ def database_health():
             ),
         ) from exc
 
+
+# ============================================================
+# HISTORIAL
+# ============================================================
+
 @app.get("/analytics/history")
 def analytics_history():
     db = SessionLocal()
@@ -140,29 +146,120 @@ def analytics_history():
 
         return [
             {
-                "id": record.id,
-                "filename": record.filename,
+                "id":
+                    record.id,
+
+                "filename":
+                    record.filename,
+
                 "rows_processed":
                     record.rows_processed,
+
                 "period_start":
                     record.period_start.isoformat(),
+
                 "period_end":
                     record.period_end.isoformat(),
+
                 "total_revenue":
                     record.total_revenue,
+
                 "transactions":
                     record.transactions,
+
                 "units_sold":
                     record.units_sold,
+
                 "average_ticket":
                     record.average_ticket,
+
                 "top_product":
                     record.top_product,
+
                 "created_at":
                     record.created_at.isoformat(),
             }
             for record in records
         ]
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# DETALLE DE UN ANÁLISIS HISTÓRICO
+# ============================================================
+
+@app.get(
+    "/analytics/history/{analysis_id}"
+)
+def analytics_history_detail(
+    analysis_id: int,
+):
+    db = SessionLocal()
+
+    try:
+        record = (
+            get_analysis_history_by_id(
+                db,
+                analysis_id,
+            )
+        )
+
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "No se encontró el análisis "
+                    "solicitado."
+                ),
+            )
+
+        return {
+            "id":
+                record.id,
+
+            "filename":
+                record.filename,
+
+            "rows_processed":
+                record.rows_processed,
+
+            "period_start":
+                record.period_start.isoformat(),
+
+            "period_end":
+                record.period_end.isoformat(),
+
+            "kpis": {
+                "total_revenue":
+                    record.total_revenue,
+
+                "transactions":
+                    record.transactions,
+
+                "units_sold":
+                    record.units_sold,
+
+                "average_ticket":
+                    record.average_ticket,
+
+                "top_product":
+                    record.top_product,
+            },
+
+            "analytics":
+                record.analytics_json,
+
+            "insights":
+                record.insights_json,
+
+            "comparison":
+                record.comparison_json,
+
+            "created_at":
+                record.created_at.isoformat(),
+        }
 
     finally:
         db.close()
@@ -363,7 +460,7 @@ async def upload_mapped_sales_file(
         )
 
         # ----------------------------------------------------
-        # DATASET PARA EL DASHBOARD
+        # DATASET FILTRADO
         # ----------------------------------------------------
 
         filtered_df = (
@@ -394,10 +491,7 @@ async def upload_mapped_sales_file(
                     "no son válidas."
                 )
 
-            if (
-                parsed_start
-                > parsed_end
-            ):
+            if parsed_start > parsed_end:
                 raise ValueError(
                     "La fecha inicial no puede "
                     "ser posterior a la fecha final."
@@ -488,8 +582,8 @@ async def upload_mapped_sales_file(
         # ----------------------------------------------------
         # GUARDAR HISTORIAL
         #
-        # Solo guardamos el análisis inicial.
-        # Los filtros no generan nuevos registros.
+        # Solo el análisis inicial.
+        # Los filtros NO crean registros nuevos.
         # ----------------------------------------------------
 
         analysis_id = None
@@ -520,42 +614,62 @@ async def upload_mapped_sales_file(
                 record = (
                     save_analysis_history(
                         db,
-                        filename=filename,
-                        rows_processed=len(
-                            filtered_df
-                        ),
+
+                        filename=
+                            filename,
+
+                        rows_processed=
+                            len(
+                                filtered_df
+                            ),
+
                         period_start=
                             period_start,
+
                         period_end=
                             period_end,
+
                         total_revenue=
                             float(
                                 kpis[
                                     "total_revenue"
                                 ]
                             ),
+
                         transactions=
                             int(
                                 kpis[
                                     "transactions"
                                 ]
                             ),
+
                         units_sold=
                             int(
                                 kpis[
                                     "units_sold"
                                 ]
                             ),
+
                         average_ticket=
                             float(
                                 kpis[
                                     "average_ticket"
                                 ]
                             ),
+
                         top_product=
                             kpis.get(
                                 "top_product"
                             ),
+
+                        analytics_json=
+                            analytics,
+
+                        insights_json=
+                            insights,
+
+                        comparison_json=
+                            comparison,
                     )
                 )
 
@@ -761,13 +875,11 @@ async def preview_mapped_sales_file(
         )
 
         # ----------------------------------------------------
-        # FECHAS
+        # VALIDACIONES
         # ----------------------------------------------------
 
         missing_fecha = int(
-            df[
-                "fecha"
-            ]
+            df["fecha"]
             .isna()
             .sum()
         )
@@ -775,15 +887,9 @@ async def preview_mapped_sales_file(
         invalid_fecha = int(
             (
                 parsed_fecha.isna()
-                & df[
-                    "fecha"
-                ].notna()
+                & df["fecha"].notna()
             ).sum()
         )
-
-        # ----------------------------------------------------
-        # PRODUCTOS
-        # ----------------------------------------------------
 
         missing_producto = int(
             (
@@ -791,19 +897,13 @@ async def preview_mapped_sales_file(
                     "producto"
                 ].isna()
                 | (
-                    df[
-                        "producto"
-                    ]
+                    df["producto"]
                     .astype(str)
                     .str.strip()
                     == ""
                 )
             ).sum()
         )
-
-        # ----------------------------------------------------
-        # CATEGORÍAS
-        # ----------------------------------------------------
 
         missing_categoria = int(
             (
@@ -811,9 +911,7 @@ async def preview_mapped_sales_file(
                     "categoria"
                 ].isna()
                 | (
-                    df[
-                        "categoria"
-                    ]
+                    df["categoria"]
                     .astype(str)
                     .str.strip()
                     == ""
@@ -821,14 +919,8 @@ async def preview_mapped_sales_file(
             ).sum()
         )
 
-        # ----------------------------------------------------
-        # CANTIDADES
-        # ----------------------------------------------------
-
         missing_cantidad = int(
-            df[
-                "cantidad"
-            ]
+            df["cantidad"]
             .isna()
             .sum()
         )
@@ -851,10 +943,6 @@ async def preview_mapped_sales_file(
                 )
             ).sum()
         )
-
-        # ----------------------------------------------------
-        # PRECIOS
-        # ----------------------------------------------------
 
         missing_precio = int(
             df[
@@ -882,10 +970,6 @@ async def preview_mapped_sales_file(
                 )
             ).sum()
         )
-
-        # ----------------------------------------------------
-        # ERRORES BLOQUEANTES
-        # ----------------------------------------------------
 
         blocking_errors = (
             missing_fecha
@@ -915,9 +999,7 @@ async def preview_mapped_sales_file(
             ].isna()
 
             | (
-                df[
-                    "producto"
-                ]
+                df["producto"]
                 .astype(str)
                 .str.strip()
                 == ""
@@ -963,10 +1045,6 @@ async def preview_mapped_sales_file(
             )
         )
 
-        # ----------------------------------------------------
-        # PREVIEW
-        # ----------------------------------------------------
-
         preview = (
             df.head(5)
             .fillna("")
@@ -975,10 +1053,6 @@ async def preview_mapped_sales_file(
                 orient="records"
             )
         )
-
-        # ----------------------------------------------------
-        # VALIDACIÓN
-        # ----------------------------------------------------
 
         validation = {
             "total_rows":

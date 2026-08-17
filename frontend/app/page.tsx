@@ -82,7 +82,9 @@ export default function Home() {
     useState("");
 
   const [history, setHistory] =
-    useState<AnalysisHistoryItem[]>([]);
+    useState<AnalysisHistoryItem[]>(
+      []
+    );
 
   const [
     historyLoading,
@@ -95,9 +97,10 @@ export default function Home() {
       setHistoryLoading(true);
 
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/analytics/history"
-        );
+        const response =
+          await fetch(
+            "http://127.0.0.1:8000/analytics/history"
+          );
 
         const data =
           await response.json();
@@ -129,7 +132,8 @@ export default function Home() {
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const selectedFile =
-      event.target.files?.[0] ?? null;
+      event.target.files?.[0] ??
+      null;
 
     setFile(selectedFile);
 
@@ -175,13 +179,14 @@ export default function Home() {
     );
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/analytics/inspect",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          "http://127.0.0.1:8000/analytics/inspect",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
       const data =
         await response.json();
@@ -285,13 +290,14 @@ export default function Home() {
     );
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/analytics/preview-mapped",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          "http://127.0.0.1:8000/analytics/preview-mapped",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
       const data =
         await response.json();
@@ -392,13 +398,14 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/analytics/upload-mapped",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          "http://127.0.0.1:8000/analytics/upload-mapped",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
       const data =
         await response.json();
@@ -426,9 +433,6 @@ export default function Home() {
             .date_range.end
         );
 
-        // Como el análisis inicial se
-        // guarda en PostgreSQL,
-        // refrescamos inmediatamente.
         await loadHistory();
       }
     } catch (err) {
@@ -465,6 +469,96 @@ export default function Home() {
   }
 
 
+  async function handleViewHistoryDetail(
+    analysisId: number
+  ) {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response =
+        await fetch(
+          `http://127.0.0.1:8000/analytics/history/${analysisId}`
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            "No fue posible cargar el análisis histórico."
+        );
+      }
+
+      if (
+        !data.analytics ||
+        !data.insights ||
+        !data.comparison
+      ) {
+        throw new Error(
+          "Este análisis histórico no contiene el detalle completo."
+        );
+      }
+
+      setResult({
+        analysis_id:
+          data.id,
+
+        filename:
+          data.filename,
+
+        rows_processed:
+          data.rows_processed,
+
+        kpis:
+          data.kpis,
+
+        analytics:
+          data.analytics,
+
+        insights:
+          data.insights,
+
+        comparison:
+          data.comparison,
+      });
+
+      setFullStartDate(
+        data.analytics
+          .date_range.start
+      );
+
+      setFullEndDate(
+        data.analytics
+          .date_range.end
+      );
+
+      setStartDate("");
+      setEndDate("");
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } catch (err) {
+      if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
+      } else {
+        setError(
+          "Ocurrió un error inesperado."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -480,7 +574,7 @@ export default function Home() {
           </div>
 
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-            v0.4
+            v0.5
           </span>
         </div>
       </header>
@@ -518,21 +612,27 @@ export default function Home() {
             inspection={
               inspection
             }
-            mapping={mapping}
+            mapping={
+              mapping
+            }
             onMappingChange={
               handleMappingChange
             }
             onPreview={
               handlePreview
             }
-            loading={loading}
+            loading={
+              loading
+            }
           />
         )}
 
         {preview && (
           <>
             <DataPreview
-              data={preview}
+              data={
+                preview
+              }
             />
 
             <div className="mx-auto mt-6 max-w-4xl">
@@ -543,7 +643,8 @@ export default function Home() {
                 }
                 disabled={
                   loading ||
-                  !preview.validation
+                  !preview
+                    .validation
                     .can_analyze
                 }
                 className="w-full rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -564,7 +665,9 @@ export default function Home() {
               </p>
 
               <h3 className="text-xl font-semibold text-slate-900">
-                {result.filename}
+                {
+                  result.filename
+                }
               </h3>
 
               <p className="mt-1 text-sm text-slate-500">
@@ -573,6 +676,15 @@ export default function Home() {
                 }{" "}
                 registros procesados
               </p>
+
+              {result.analysis_id && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Análisis #
+                  {
+                    result.analysis_id
+                  }
+                </p>
+              )}
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -637,18 +749,21 @@ export default function Home() {
                 <p className="mt-2 text-xl font-semibold text-slate-900">
                   {
                     result.analytics
-                      .date_range.start
+                      .date_range
+                      .start
                   }
                   {" → "}
                   {
                     result.analytics
-                      .date_range.end
+                      .date_range
+                      .end
                   }
                 </p>
               </div>
             </div>
 
-            {fullStartDate &&
+            {file &&
+              fullStartDate &&
               fullEndDate && (
                 <div className="mt-8">
                   <DateRangeSelector
@@ -680,6 +795,21 @@ export default function Home() {
                       loading
                     }
                   />
+                </div>
+              )}
+
+            {!file &&
+              result.analysis_id && (
+                <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-5">
+                  <p className="text-sm font-semibold text-blue-800">
+                    Vista histórica
+                  </p>
+
+                  <p className="mt-1 text-sm text-blue-700">
+                    Este dashboard fue recuperado desde PostgreSQL.
+                    Para aplicar filtros diferentes debes cargar nuevamente
+                    el archivo original.
+                  </p>
                 </div>
               )}
 
@@ -728,9 +858,14 @@ export default function Home() {
 
         <section className="mx-auto mt-12 max-w-6xl">
           <AnalysisHistory
-            history={history}
+            history={
+              history
+            }
             loading={
               historyLoading
+            }
+            onViewDetail={
+              handleViewHistoryDetail
             }
           />
         </section>
