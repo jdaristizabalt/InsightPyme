@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
+import AnalysisHistory from "@/components/AnalysisHistory";
 import ColumnMapper from "@/components/ColumnMapper";
 import DataPreview from "@/components/DataPreview";
 import DateRangeSelector from "@/components/DateRangeSelector";
@@ -16,6 +21,7 @@ import TopProductsTable from "@/components/TopProductsTable";
 import { formatCurrency } from "@/lib/formatters";
 
 import type { AnalyticsResponse } from "@/types/analytics";
+import type { AnalysisHistoryItem } from "@/types/history";
 
 import type {
   ColumnMapping,
@@ -40,8 +46,6 @@ export default function Home() {
   const [endDate, setEndDate] =
     useState("");
 
-  // Rango completo original del archivo.
-  // No cambia aunque filtremos el dashboard.
   const [fullStartDate, setFullStartDate] =
     useState("");
 
@@ -52,10 +56,14 @@ export default function Home() {
     useState<File | null>(null);
 
   const [inspection, setInspection] =
-    useState<FileInspection | null>(null);
+    useState<FileInspection | null>(
+      null
+    );
 
   const [preview, setPreview] =
-    useState<MappedPreview | null>(null);
+    useState<MappedPreview | null>(
+      null
+    );
 
   const [mapping, setMapping] =
     useState<ColumnMapping>(
@@ -73,6 +81,49 @@ export default function Home() {
   const [error, setError] =
     useState("");
 
+  const [history, setHistory] =
+    useState<AnalysisHistoryItem[]>([]);
+
+  const [
+    historyLoading,
+    setHistoryLoading,
+  ] = useState(true);
+
+
+  const loadHistory =
+    useCallback(async () => {
+      setHistoryLoading(true);
+
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:8000/analytics/history"
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            "No fue posible cargar el historial."
+          );
+        }
+
+        setHistory(data);
+      } catch (err) {
+        console.error(
+          "Error cargando historial:",
+          err
+        );
+      } finally {
+        setHistoryLoading(false);
+      }
+    }, []);
+
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
 
   async function handleFileChange(
     event: React.ChangeEvent<HTMLInputElement>
@@ -84,7 +135,11 @@ export default function Home() {
 
     setInspection(null);
     setPreview(null);
-    setMapping(EMPTY_MAPPING);
+
+    setMapping(
+      EMPTY_MAPPING
+    );
+
     setResult(null);
 
     setError("");
@@ -357,8 +412,6 @@ export default function Home() {
 
       setResult(data);
 
-      // Cuando analizamos SIN filtro,
-      // guardamos el rango completo original.
       if (
         !customStartDate &&
         !customEndDate
@@ -372,6 +425,11 @@ export default function Home() {
           data.analytics
             .date_range.end
         );
+
+        // Como el análisis inicial se
+        // guarda en PostgreSQL,
+        // refrescamos inmediatamente.
+        await loadHistory();
       }
     } catch (err) {
       if (
@@ -422,7 +480,7 @@ export default function Home() {
           </div>
 
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-            v0.3
+            v0.4
           </span>
         </div>
       </header>
@@ -506,9 +564,7 @@ export default function Home() {
               </p>
 
               <h3 className="text-xl font-semibold text-slate-900">
-                {
-                  result.filename
-                }
+                {result.filename}
               </h3>
 
               <p className="mt-1 text-sm text-slate-500">
@@ -669,6 +725,15 @@ export default function Home() {
             </div>
           </section>
         )}
+
+        <section className="mx-auto mt-12 max-w-6xl">
+          <AnalysisHistory
+            history={history}
+            loading={
+              historyLoading
+            }
+          />
+        </section>
       </section>
     </main>
   );

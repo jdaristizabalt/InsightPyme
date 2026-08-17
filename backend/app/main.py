@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pandas as pd
+
 from fastapi import (
     FastAPI,
     File,
@@ -8,7 +9,23 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
-from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
+
+from sqlalchemy import text
+
+from app.database import (
+    SessionLocal,
+    create_tables,
+    engine,
+)
+
+from app.repositories import (
+    get_analysis_history,
+    save_analysis_history,
+)
 
 from app.services.analytics import (
     calculate_custom_period_comparison,
@@ -19,15 +36,30 @@ from app.services.analytics import (
 )
 
 
+# ============================================================
+# APLICACIÓN
+# ============================================================
+
 app = FastAPI(
     title="InsightPyme API",
     description=(
         "API para procesamiento y análisis "
         "de datos de ventas."
     ),
-    version="0.1.0",
+    version="0.4.0",
 )
 
+
+# ============================================================
+# CREAR TABLAS
+# ============================================================
+
+create_tables()
+
+
+# ============================================================
+# CORS
+# ============================================================
 
 origins = [
     "http://localhost:3000",
@@ -44,14 +76,22 @@ app.add_middleware(
 )
 
 
+# ============================================================
+# ROOT
+# ============================================================
+
 @app.get("/")
 def root():
     return {
         "app": "InsightPyme",
         "status": "running",
-        "version": "0.1.0",
+        "version": "0.4.0",
     }
 
+
+# ============================================================
+# HEALTH API
+# ============================================================
 
 @app.get("/health")
 def health_check():
@@ -61,7 +101,75 @@ def health_check():
 
 
 # ============================================================
-# INSPECCIÓN INICIAL DEL ARCHIVO
+# HEALTH POSTGRESQL
+# ============================================================
+
+@app.get("/database/health")
+def database_health():
+    try:
+        with engine.connect() as connection:
+            result = connection.execute(
+                text("SELECT 1")
+            )
+
+            value = result.scalar()
+
+        return {
+            "status": "healthy",
+            "database": "postgresql",
+            "test": value,
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "No fue posible conectar "
+                "con PostgreSQL."
+            ),
+        ) from exc
+
+@app.get("/analytics/history")
+def analytics_history():
+    db = SessionLocal()
+
+    try:
+        records = get_analysis_history(
+            db
+        )
+
+        return [
+            {
+                "id": record.id,
+                "filename": record.filename,
+                "rows_processed":
+                    record.rows_processed,
+                "period_start":
+                    record.period_start.isoformat(),
+                "period_end":
+                    record.period_end.isoformat(),
+                "total_revenue":
+                    record.total_revenue,
+                "transactions":
+                    record.transactions,
+                "units_sold":
+                    record.units_sold,
+                "average_ticket":
+                    record.average_ticket,
+                "top_product":
+                    record.top_product,
+                "created_at":
+                    record.created_at.isoformat(),
+            }
+            for record in records
+        ]
+
+    finally:
+        db.close()
+
+
+# ============================================================
+# INSPECCIÓN DEL ARCHIVO
 # ============================================================
 
 @app.post("/analytics/inspect")
@@ -88,12 +196,22 @@ async def inspect_sales_file(
 
     try:
         contents = await file.read()
-        buffer = BytesIO(contents)
 
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(buffer)
+        buffer = BytesIO(
+            contents
+        )
+
+        if filename.lower().endswith(
+            ".csv"
+        ):
+            df = pd.read_csv(
+                buffer
+            )
+
         else:
-            df = pd.read_excel(buffer)
+            df = pd.read_excel(
+                buffer
+            )
 
         if df.empty:
             raise ValueError(
@@ -110,10 +228,17 @@ async def inspect_sales_file(
         )
 
         return {
-            "filename": filename,
-            "rows": len(df),
-            "columns": df.columns.tolist(),
-            "preview": preview,
+            "filename":
+                filename,
+
+            "rows":
+                len(df),
+
+            "columns":
+                df.columns.tolist(),
+
+            "preview":
+                preview,
         }
 
     except ValueError as exc:
@@ -167,28 +292,53 @@ async def upload_mapped_sales_file(
 
     try:
         contents = await file.read()
-        buffer = BytesIO(contents)
 
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(buffer)
+        buffer = BytesIO(
+            contents
+        )
+
+        if filename.lower().endswith(
+            ".csv"
+        ):
+            df = pd.read_csv(
+                buffer
+            )
+
         else:
-            df = pd.read_excel(buffer)
+            df = pd.read_excel(
+                buffer
+            )
 
-        # Eliminar espacios accidentales
-        # introducidos en el formulario.
+        # ----------------------------------------------------
+        # LIMPIAR NOMBRES
+        # ----------------------------------------------------
+
         fecha = fecha.strip()
         producto = producto.strip()
         categoria = categoria.strip()
         cantidad = cantidad.strip()
+
         precio_unitario = (
             precio_unitario.strip()
         )
 
+        # ----------------------------------------------------
+        # MAPEO
+        # ----------------------------------------------------
+
         mapping = {
-            fecha: "fecha",
-            producto: "producto",
-            categoria: "categoria",
-            cantidad: "cantidad",
+            fecha:
+                "fecha",
+
+            producto:
+                "producto",
+
+            categoria:
+                "categoria",
+
+            cantidad:
+                "cantidad",
+
             precio_unitario:
                 "precio_unitario",
         }
@@ -208,27 +358,31 @@ async def upload_mapped_sales_file(
                 )
             )
 
-        # Normalizamos los nombres
-        # al esquema interno de InsightPyme.
         df = df.rename(
             columns=mapping
         )
 
         # ----------------------------------------------------
-        # DATASET FILTRADO PARA EL DASHBOARD
+        # DATASET PARA EL DASHBOARD
         # ----------------------------------------------------
 
-        filtered_df = df.copy()
+        filtered_df = (
+            df.copy()
+        )
 
         if fecha_inicio and fecha_fin:
-            parsed_start = pd.to_datetime(
-                fecha_inicio,
-                errors="coerce",
+            parsed_start = (
+                pd.to_datetime(
+                    fecha_inicio,
+                    errors="coerce",
+                )
             )
 
-            parsed_end = pd.to_datetime(
-                fecha_fin,
-                errors="coerce",
+            parsed_end = (
+                pd.to_datetime(
+                    fecha_fin,
+                    errors="coerce",
+                )
             )
 
             if (
@@ -240,27 +394,37 @@ async def upload_mapped_sales_file(
                     "no son válidas."
                 )
 
-            if parsed_start > parsed_end:
+            if (
+                parsed_start
+                > parsed_end
+            ):
                 raise ValueError(
                     "La fecha inicial no puede "
                     "ser posterior a la fecha final."
                 )
 
-            parsed_dates = pd.to_datetime(
-                filtered_df["fecha"],
-                errors="coerce",
+            parsed_dates = (
+                pd.to_datetime(
+                    filtered_df[
+                        "fecha"
+                    ],
+                    errors="coerce",
+                )
             )
 
-            filtered_df = filtered_df[
-                (
-                    parsed_dates
-                    >= parsed_start
-                )
-                & (
-                    parsed_dates
-                    <= parsed_end
-                )
-            ].copy()
+            filtered_df = (
+                filtered_df[
+                    (
+                        parsed_dates
+                        >= parsed_start
+                    )
+                    & (
+                        parsed_dates
+                        <= parsed_end
+                    )
+                ]
+                .copy()
+            )
 
             if filtered_df.empty:
                 raise ValueError(
@@ -269,18 +433,28 @@ async def upload_mapped_sales_file(
                 )
 
         # ----------------------------------------------------
-        # ANALÍTICA DEL PERIODO SELECCIONADO
+        # KPIS
         # ----------------------------------------------------
 
-        kpis = calculate_sales_kpis(
-            filtered_df
+        kpis = (
+            calculate_sales_kpis(
+                filtered_df
+            )
         )
+
+        # ----------------------------------------------------
+        # ANALYTICS
+        # ----------------------------------------------------
 
         analytics = (
             calculate_sales_analytics(
                 filtered_df
             )
         )
+
+        # ----------------------------------------------------
+        # INSIGHTS
+        # ----------------------------------------------------
 
         insights = (
             generate_sales_insights(
@@ -290,13 +464,12 @@ async def upload_mapped_sales_file(
 
         # ----------------------------------------------------
         # COMPARACIÓN
-        #
-        # IMPORTANTE:
-        # Utilizamos df completo para poder acceder
-        # al periodo inmediatamente anterior.
         # ----------------------------------------------------
 
-        if fecha_inicio and fecha_fin:
+        if (
+            fecha_inicio
+            and fecha_fin
+        ):
             comparison = (
                 calculate_custom_period_comparison(
                     df,
@@ -304,6 +477,7 @@ async def upload_mapped_sales_file(
                     fecha_fin,
                 )
             )
+
         else:
             comparison = (
                 calculate_period_comparison(
@@ -311,23 +485,129 @@ async def upload_mapped_sales_file(
                 )
             )
 
+        # ----------------------------------------------------
+        # GUARDAR HISTORIAL
+        #
+        # Solo guardamos el análisis inicial.
+        # Los filtros no generan nuevos registros.
+        # ----------------------------------------------------
+
+        analysis_id = None
+
+        if (
+            not fecha_inicio
+            and not fecha_fin
+        ):
+            db = SessionLocal()
+
+            try:
+                period_start = (
+                    pd.to_datetime(
+                        analytics[
+                            "date_range"
+                        ]["start"]
+                    ).date()
+                )
+
+                period_end = (
+                    pd.to_datetime(
+                        analytics[
+                            "date_range"
+                        ]["end"]
+                    ).date()
+                )
+
+                record = (
+                    save_analysis_history(
+                        db,
+                        filename=filename,
+                        rows_processed=len(
+                            filtered_df
+                        ),
+                        period_start=
+                            period_start,
+                        period_end=
+                            period_end,
+                        total_revenue=
+                            float(
+                                kpis[
+                                    "total_revenue"
+                                ]
+                            ),
+                        transactions=
+                            int(
+                                kpis[
+                                    "transactions"
+                                ]
+                            ),
+                        units_sold=
+                            int(
+                                kpis[
+                                    "units_sold"
+                                ]
+                            ),
+                        average_ticket=
+                            float(
+                                kpis[
+                                    "average_ticket"
+                                ]
+                            ),
+                        top_product=
+                            kpis.get(
+                                "top_product"
+                            ),
+                    )
+                )
+
+                analysis_id = (
+                    record.id
+                )
+
+            finally:
+                db.close()
+
+        # ----------------------------------------------------
+        # RESPONSE
+        # ----------------------------------------------------
+
         return {
-            "filename": filename,
-            "rows_processed": len(
-                filtered_df
-            ),
+            "analysis_id":
+                analysis_id,
+
+            "filename":
+                filename,
+
+            "rows_processed":
+                len(filtered_df),
+
             "mapping": {
-                "fecha": fecha,
-                "producto": producto,
-                "categoria": categoria,
-                "cantidad": cantidad,
+                "fecha":
+                    fecha,
+
+                "producto":
+                    producto,
+
+                "categoria":
+                    categoria,
+
+                "cantidad":
+                    cantidad,
+
                 "precio_unitario":
                     precio_unitario,
             },
-            "kpis": kpis,
-            "analytics": analytics,
-            "insights": insights,
-            "comparison": comparison,
+
+            "kpis":
+                kpis,
+
+            "analytics":
+                analytics,
+
+            "insights":
+                insights,
+
+            "comparison":
+                comparison,
         }
 
     except ValueError as exc:
@@ -347,7 +627,7 @@ async def upload_mapped_sales_file(
 
 
 # ============================================================
-# VISTA PREVIA Y CONTROL DE CALIDAD
+# PREVIEW Y CONTROL DE CALIDAD
 # ============================================================
 
 @app.post("/analytics/preview-mapped")
@@ -379,26 +659,45 @@ async def preview_mapped_sales_file(
 
     try:
         contents = await file.read()
-        buffer = BytesIO(contents)
 
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(buffer)
+        buffer = BytesIO(
+            contents
+        )
+
+        if filename.lower().endswith(
+            ".csv"
+        ):
+            df = pd.read_csv(
+                buffer
+            )
+
         else:
-            df = pd.read_excel(buffer)
+            df = pd.read_excel(
+                buffer
+            )
 
         fecha = fecha.strip()
         producto = producto.strip()
         categoria = categoria.strip()
         cantidad = cantidad.strip()
+
         precio_unitario = (
             precio_unitario.strip()
         )
 
         mapping = {
-            fecha: "fecha",
-            producto: "producto",
-            categoria: "categoria",
-            cantidad: "cantidad",
+            fecha:
+                "fecha",
+
+            producto:
+                "producto",
+
+            categoria:
+                "categoria",
+
+            cantidad:
+                "cantidad",
+
             precio_unitario:
                 "precio_unitario",
         }
@@ -435,30 +734,40 @@ async def preview_mapped_sales_file(
         ].copy()
 
         # ----------------------------------------------------
-        # CONVERSIONES DE PRUEBA
+        # CONVERSIONES
         # ----------------------------------------------------
 
-        parsed_fecha = pd.to_datetime(
-            df["fecha"],
-            errors="coerce",
+        parsed_fecha = (
+            pd.to_datetime(
+                df["fecha"],
+                errors="coerce",
+            )
         )
 
-        parsed_cantidad = pd.to_numeric(
-            df["cantidad"],
-            errors="coerce",
+        parsed_cantidad = (
+            pd.to_numeric(
+                df["cantidad"],
+                errors="coerce",
+            )
         )
 
-        parsed_precio = pd.to_numeric(
-            df["precio_unitario"],
-            errors="coerce",
+        parsed_precio = (
+            pd.to_numeric(
+                df[
+                    "precio_unitario"
+                ],
+                errors="coerce",
+            )
         )
 
         # ----------------------------------------------------
-        # VALIDACIONES
+        # FECHAS
         # ----------------------------------------------------
 
         missing_fecha = int(
-            df["fecha"]
+            df[
+                "fecha"
+            ]
             .isna()
             .sum()
         )
@@ -466,27 +775,45 @@ async def preview_mapped_sales_file(
         invalid_fecha = int(
             (
                 parsed_fecha.isna()
-                & df["fecha"].notna()
+                & df[
+                    "fecha"
+                ].notna()
             ).sum()
         )
+
+        # ----------------------------------------------------
+        # PRODUCTOS
+        # ----------------------------------------------------
 
         missing_producto = int(
             (
-                df["producto"].isna()
+                df[
+                    "producto"
+                ].isna()
                 | (
-                    df["producto"]
+                    df[
+                        "producto"
+                    ]
                     .astype(str)
                     .str.strip()
                     == ""
                 )
             ).sum()
         )
+
+        # ----------------------------------------------------
+        # CATEGORÍAS
+        # ----------------------------------------------------
 
         missing_categoria = int(
             (
-                df["categoria"].isna()
+                df[
+                    "categoria"
+                ].isna()
                 | (
-                    df["categoria"]
+                    df[
+                        "categoria"
+                    ]
                     .astype(str)
                     .str.strip()
                     == ""
@@ -494,8 +821,14 @@ async def preview_mapped_sales_file(
             ).sum()
         )
 
+        # ----------------------------------------------------
+        # CANTIDADES
+        # ----------------------------------------------------
+
         missing_cantidad = int(
-            df["cantidad"]
+            df[
+                "cantidad"
+            ]
             .isna()
             .sum()
         )
@@ -503,7 +836,9 @@ async def preview_mapped_sales_file(
         invalid_cantidad = int(
             (
                 parsed_cantidad.isna()
-                & df["cantidad"].notna()
+                & df[
+                    "cantidad"
+                ].notna()
             ).sum()
         )
 
@@ -517,8 +852,14 @@ async def preview_mapped_sales_file(
             ).sum()
         )
 
+        # ----------------------------------------------------
+        # PRECIOS
+        # ----------------------------------------------------
+
         missing_precio = int(
-            df["precio_unitario"]
+            df[
+                "precio_unitario"
+            ]
             .isna()
             .sum()
         )
@@ -526,11 +867,9 @@ async def preview_mapped_sales_file(
         invalid_precio = int(
             (
                 parsed_precio.isna()
-                & (
-                    df[
-                        "precio_unitario"
-                    ].notna()
-                )
+                & df[
+                    "precio_unitario"
+                ].notna()
             ).sum()
         )
 
@@ -543,6 +882,10 @@ async def preview_mapped_sales_file(
                 )
             ).sum()
         )
+
+        # ----------------------------------------------------
+        # ERRORES BLOQUEANTES
+        # ----------------------------------------------------
 
         blocking_errors = (
             missing_fecha
@@ -566,14 +909,22 @@ async def preview_mapped_sales_file(
 
         problematic_mask = (
             parsed_fecha.isna()
-            | df["producto"].isna()
+
+            | df[
+                "producto"
+            ].isna()
+
             | (
-                df["producto"]
+                df[
+                    "producto"
+                ]
                 .astype(str)
                 .str.strip()
                 == ""
             )
+
             | parsed_cantidad.isna()
+
             | (
                 parsed_cantidad.notna()
                 & (
@@ -581,7 +932,9 @@ async def preview_mapped_sales_file(
                     <= 0
                 )
             )
+
             | parsed_precio.isna()
+
             | (
                 parsed_precio.notna()
                 & (
@@ -610,6 +963,10 @@ async def preview_mapped_sales_file(
             )
         )
 
+        # ----------------------------------------------------
+        # PREVIEW
+        # ----------------------------------------------------
+
         preview = (
             df.head(5)
             .fillna("")
@@ -618,6 +975,10 @@ async def preview_mapped_sales_file(
                 orient="records"
             )
         )
+
+        # ----------------------------------------------------
+        # VALIDACIÓN
+        # ----------------------------------------------------
 
         validation = {
             "total_rows":
@@ -666,10 +1027,13 @@ async def preview_mapped_sales_file(
         return {
             "filename":
                 filename,
+
             "preview":
                 preview,
+
             "validation":
                 validation,
+
             "problematic_rows":
                 problematic_rows,
         }
@@ -719,15 +1083,26 @@ async def upload_sales_file(
     try:
         contents = await file.read()
 
-        buffer = BytesIO(contents)
+        buffer = BytesIO(
+            contents
+        )
 
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(buffer)
+        if filename.lower().endswith(
+            ".csv"
+        ):
+            df = pd.read_csv(
+                buffer
+            )
+
         else:
-            df = pd.read_excel(buffer)
+            df = pd.read_excel(
+                buffer
+            )
 
-        kpis = calculate_sales_kpis(
-            df
+        kpis = (
+            calculate_sales_kpis(
+                df
+            )
         )
 
         analytics = (
@@ -749,14 +1124,24 @@ async def upload_sales_file(
         )
 
         return {
-            "filename": filename,
+            "analysis_id":
+                None,
+
+            "filename":
+                filename,
+
             "rows_processed":
                 len(df),
-            "kpis": kpis,
+
+            "kpis":
+                kpis,
+
             "analytics":
                 analytics,
+
             "insights":
                 insights,
+
             "comparison":
                 comparison,
         }
